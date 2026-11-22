@@ -1,0 +1,1938 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HITSTER アニメ版 サバイバル</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@500;700;900&family=Outfit:wght@700;900&display=swap');
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      user-select: none;
+    }
+    .font-display {
+      font-family: 'Outfit', 'Noto Sans JP', sans-serif;
+    }
+    .spin-slow {
+      animation: spinSlow 4s linear infinite;
+    }
+    @keyframes spinSlow {
+      100% { transform: rotate(360deg); }
+    }
+    .tl-scroll::-webkit-scrollbar {
+      height: 8px;
+    }
+    .tl-scroll::-webkit-scrollbar-track {
+      background: #e2e8f0;
+      border-radius: 9999px;
+    }
+    .tl-scroll::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-gradient-to-br from-fuchsia-50 via-white to-amber-50">
+
+  <!-- HEADER -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b-2 border-slate-200 px-4 py-3 shadow-sm">
+    <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-fuchsia-600 text-white flex items-center justify-center shadow">
+          <i class="fa-solid fa-tv text-base"></i>
+        </div>
+        <div>
+          <h1 class="font-display text-xl sm:text-2xl font-black text-slate-900">HITSTER ANIME SURVIVAL</h1>
+          <p class="text-xs font-bold text-slate-500">アニメソング版・全員共通TL・ライフ制サバイバル</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="btn-copy-code" onclick="copyRoomCode()" class="hidden items-center gap-1.5 px-3 py-2 rounded-xl bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-950 font-black text-sm border border-fuchsia-300 transition active:scale-95">
+          <i class="fa-solid fa-key text-fuchsia-600"></i>
+          <span>合言葉: <strong id="header-code" class="font-display text-base"></strong></span>
+          <i class="fa-regular fa-copy ml-1"></i>
+        </button>
+
+        <button id="btn-mute" onclick="toggleMute()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm border border-slate-300 transition active:scale-95">
+          <i id="icon-mute" class="fa-solid fa-volume-high text-emerald-600"></i>
+          <span id="label-mute" class="hidden sm:inline">音声ON</span>
+        </button>
+
+        <button onclick="openRules()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-sm border border-amber-300 transition active:scale-95">
+          <i class="fa-solid fa-book-open text-amber-600"></i>
+          <span>ルール</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- TOAST -->
+  <div id="toast-box" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col gap-2 w-11/12 max-w-md"></div>
+
+  <!-- MAIN -->
+  <main id="app-root" class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center"></main>
+
+  <!-- RULES MODAL -->
+  <div id="rules-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl border-2 border-slate-200 overflow-hidden">
+      <div class="px-6 py-4 bg-fuchsia-600 text-white flex items-center justify-between">
+        <h2 class="text-lg font-black"><i class="fa-solid fa-list-check mr-2"></i>ゲームルール</h2>
+        <button onclick="closeRules()" class="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center font-bold">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="p-6 overflow-y-auto space-y-3 text-sm sm:text-base font-bold text-slate-700 leading-relaxed">
+        <p>1. 全員で<strong>1つの共通タイムライン（TL）</strong>にカードを並べていきます。</p>
+        <p>2. 各プレイヤーは<strong>初期ライフ</strong>（デフォルト2、ホストが1〜10で変更可）を持ちます。</p>
+        <p>3. 順番に1枚引き、再生ボタンで試聴して、発売年が左から右へ古→新になる位置に置きます。</p>
+        <p>4. 年代順が合っていればカードがTLに追加されます。<strong>間違えるとライフが1減ります</strong>。</p>
+        <p>5. <strong>通常スキップは1人1回だけ</strong>使えます（現在の曲を捨てて次の曲を引きます）。</p>
+        <p>6. <strong>オルゴール・別バージョン・違う曲が流れた場合</strong>や<strong>音源が見つからなかった場合</strong>は、回数制限なしのスキップ（回数消費なし）で通常のスキップ権を温存できます。</p>
+        <p>7. 結果発表後に検索ミスに気づいた場合は、<strong>「検索ミスやり直し（ライフ戻してスキップ）」</strong>でやり直せます。</p>
+        <p>8. ライフが0になると脱落し、<strong>最後まで生き残ったプレイヤーの勝利</strong>です。</p>
+      </div>
+      <div class="p-4 bg-slate-50 border-t border-slate-200 text-right">
+        <button onclick="closeRules()" class="px-6 py-2.5 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ============================================================================
+// 1. アニメ曲リスト（★★★ ここに曲リストを挿入してください ★★★）
+//    フォーマット:
+//      { year: 2011, title: "ヒャダインのじょーじょーゆーじょー", anime: "日常", artist: "ヒャダイン" },
+// ============================================================================
+const SONG_POOL = [
+  // ▼▼▼ ここに曲リストを挿入 ▼▼▼
+
+    { year: 1980, title: "復活のイデオン", anime: "伝説巨神イデオン", artist: "たいらいさお" },
+    { year: 1980, title: "ユカイ・ツーカイ・怪物くん", anime: "怪物くん", artist: "野沢雅子" },
+    { year: 1980, title: "裸足のフローネ", anime: "家族ロビンソン漂流記 ふしぎな島のフローネ", artist: "潘恵子" },
+
+    // --- 1981年 (3曲) ---
+    { year: 1981, title: "ラムのラブソング", anime: "うる星やつら", artist: "松谷祐子" },
+    { year: 1981, title: "ワイワイワールド", anime: "Dr.スランプ アラレちゃん", artist: "水森亜土" },
+    { year: 1981, title: "ハロー! サンディベル", anime: "ハロー!サンディベル", artist: "堀江美都子" },
+
+    // --- 1982年 (3曲) ---
+    { year: 1982, title: "マクロス", anime: "超時空要塞マクロス", artist: "藤原誠" },
+    { year: 1982, title: "コブラ", anime: "スペースコブラ", artist: "前野曜子" },
+    { year: 1982, title: "パタリロ!", anime: "パタリロ!", artist: "藤本房子" },
+
+    // --- 1983年 (3曲) ---
+    { year: 1983, title: "CAT'S EYE", anime: "キャッツ・アイ", artist: "杏里" },
+    { year: 1983, title: "キン肉マン Go Fight!", anime: "キン肉マン", artist: "串田アキラ" },
+    { year: 1983, title: "ダンバイン とぶ", anime: "聖戦士ダンバイン", artist: "MIO" },
+
+    // --- 1984年 (3曲) ---
+    { year: 1984, title: "愛をとりもどせ!!", anime: "北斗の拳", artist: "クリスタルキング" },
+    { year: 1984, title: "愛・おぼえていますか", anime: "超時空要塞マクロス", artist: "飯島真理" },
+    { year: 1984, title: "ガラスの仮面", anime: "ガラスの仮面", artist: "芦部真梨子" },
+
+    // --- 1985年 (3曲) ---
+    { year: 1985, title: "タッチ", anime: "タッチ", artist: "岩崎良美" },
+    { year: 1985, title: "Z・刻をこえて", anime: "機動戦士Ζガンダム", artist: "鮎川麻弥" },
+    { year: 1985, title: "水の星へ愛をこめて", anime: "機動戦士Ζガンダム", artist: "森口博子" },
+
+    // --- 1986年 (3曲) ---
+    { year: 1986, title: "ペガサス幻想", anime: "聖闘士星矢", artist: "MAKE-UP" },
+    { year: 1986, title: "魔訶不思議アドベンチャー!", anime: "ドラゴンボール", artist: "高橋洋樹" },
+    { year: 1986, title: "悲しみよこんにちは", anime: "めぞん一刻", artist: "斉藤由貴" },
+
+    // --- 1987年 (3曲) ---
+    { year: 1987, title: "Get Wild", anime: "シティーハンター", artist: "TM NETWORK" },
+    { year: 1987, title: "アニメじゃない〜夢を忘れた古い地球人よ〜", anime: "機動戦士ガンダムZZ", artist: "新井正人" },
+    { year: 1987, title: "City Hunter〜愛よ消えないで〜", anime: "シティーハンター", artist: "小比類巻かほる" },
+
+    // --- 1988年 (3曲) ---
+    { year: 1988, title: "アンパンマンのマーチ", anime: "それいけ!アンパンマン", artist: "ドリーミング" },
+    { year: 1988, title: "BEYOND THE TIME (メビウスの宇宙を越えて)", anime: "機動戦士ガンダム 逆襲のシャア", artist: "TM NETWORK" },
+    { year: 1988, title: "STEP", anime: "魔神英雄伝ワタル", artist: "a・chi-a・chi" },
+
+    // --- 1989年 (3曲) ---
+    { year: 1989, title: "CHA-LA HEAD-CHA-LA", anime: "ドラゴンボールZ", artist: "影山ヒロノブ" },
+    { year: 1989, title: "じゃじゃ馬にさせないで", anime: "らんま1/2", artist: "西尾えつ子" },
+    { year: 1989, title: "やさしさに包まれたなら", anime: "魔女の宅急便", artist: "荒井由実" },
+
+    // --- 1990年 (3曲) ---
+    { year: 1990, title: "おどるポンポコリン", anime: "ちびまる子ちゃん", artist: "B.B.クィーンズ" },
+    { year: 1990, title: "ブルーウォーター", anime: "ふしぎの海のナディア", artist: "森川美穂" },
+    { year: 1990, title: "Gatherway", anime: "勇者エクスカイザー", artist: "三浦秀美" },
+
+   // --- 1991年 ---
+    { year: 1991, title: "Winners", anime: "新世紀GPXサイバーフォーミュラ", artist: "G・GRIP" },
+    { year: 1991, title: "ドリーム・シフト", anime: "絶対無敵ライジンオー", artist: "SILK" },
+    { year: 1991, title: "炎のゴー・ファイト", anime: "炎の闘球児 ドッジ弾平", artist: "徳垣とも子" },
+    { year: 1991, title: "背中からフリクション", anime: "新世紀GPXサイバーフォーミュラ", artist: "G・GRIP" },
+    { year: 1991, title: "ETERNAL WIND〜ほほえみは光る風の中〜", anime: "機動戦士ガンダムF91", artist: "森口博子" },
+
+    // --- 1992年 ---
+    { year: 1992, title: "ムーンライト伝説", anime: "美少女戦士セーラームーン", artist: "DALI" },
+    { year: 1992, title: "微笑みの爆弾", anime: "幽☆遊☆白書", artist: "馬渡松子" },
+    { year: 1992, title: "よろしくSOS", anime: "ママは小学4年生", artist: "水谷優子" },
+    { year: 1992, title: "風の未来へ", anime: "伝説の勇者ダ・ガーン", artist: "佐藤有香" },
+    { year: 1992, title: "見つめていたい", anime: "伝説の勇者ダ・ガーン", artist: "佐藤有香" },
+    { year: 1992, title: "ハートの呪文", anime: "南国少年パプワくん", artist: "PINK SAPPHIRE" },
+    { year: 1992, title: "コスモスのシュート", anime: "燃えろ!トップストライカー", artist: "影山ヒロノブ" },
+    { year: 1992, title: "正義の使者だよユーロビート", anime: "宇宙の騎士テッカマンブレード", artist: "小坂由美子" },
+
+// --- 1993年 ---
+    { year: 1993, title: "君が好きだと叫びたい", anime: "SLAM DUNK", artist: "BAAD" },
+    { year: 1993, title: "勇気100%", anime: "忍たま乱太郎", artist: "光GENJI" },
+    { year: 1993, title: "僕らは天使だった", anime: "ドラゴンボールZ", artist: "影山ヒロノブ" },
+    { year: 1993, title: "STAND UP TO THE VICTORY", anime: "機動戦士Vガンダム", artist: "川添智久" },
+    { year: 1993, title: "WINNER", anime: "機動戦士ガンダム0083 STARDUST MEMORY", artist: "松原みき" },
+    { year: 1993, title: "HEART TO HEART", anime: "勇者警察ジェイデッカー", artist: "彩恵津子" },
+    { year: 1993, title: "ZOO〜愛をください〜", anime: "ツヨシしっかりしなさい", artist: "T-BOLAN" },
+    { year: 1993, title: "素顔のままで", anime: "疾風!アイアンリーガー", artist: "渡辺美里" },
+
+    // --- 1994年 ---
+    { year: 1994, title: "ゆずれない願い", anime: "魔法騎士レイアース", artist: "田村直美" },
+    { year: 1994, title: "世界が終るまでは…", anime: "SLAM DUNK", artist: "WANDS" },
+    { year: 1994, title: "FLYING IN THE SKY", anime: "機動武闘伝Gガンダム", artist: "鵜島仁文" },
+    { year: 1994, title: "Trust You Forever", anime: "機動武闘伝Gガンダム", artist: "鵜島仁文" },
+    { year: 1994, title: "あなただけ見つめてる", anime: "SLAM DUNK", artist: "大黒摩季" },
+    { year: 1994, title: "愛をつかみとれ", anime: "覇王大系リューナイト", artist: "三重野瞳" },
+    { year: 1994, title: "ラッキーマンの歌", anime: "とっても!ラッキーマン", artist: "八代亜紀" },
+    { year: 1994, title: "夢のヒーロー", anime: "電光超人グリッドマン", artist: "坂井紀雄" }, // ※特撮は1993年
+    { year: 1994, title: "笑顔に会いたい", anime: "ママレード・ボーイ", artist: "濱田理恵" },
+
+    // --- 1995年（元リストから正しい年代に移行） ---
+    { year: 1995, title: "JUST COMMUNICATION", anime: "新機動戦記ガンダムW", artist: "TWO-MIX" },
+    { year: 1995, title: "輝きは君の中に", anime: "NINKU -忍空-", artist: "鈴木結女" },
+    { year: 1995, title: "ときめきの導火線", anime: "ふしぎ遊戯", artist: "今野友加里" },
+    { year: 1995, title: "空へ…", anime: "ロミオの青い空", artist: "笠原弘子" },
+
+// --- 1995年 ---
+    { year: 1995, title: "残酷な天使のテーゼ", anime: "新世紀エヴァンゲリオン", artist: "高橋洋子" },
+    { year: 1995, title: "Get along", anime: "スレイヤーズ", artist: "林原めぐみ・奥井雅美" },
+    { year: 1995, title: "Rhythm Emotion", anime: "新機動戦記ガンダムW", artist: "TWO-MIX" },
+    { year: 1995, title: "FLY ME TO THE MOON", anime: "新世紀エヴァンゲリオン", artist: "CLAIRE" },
+    { year: 1995, title: "MASK", anime: "爆れつハンター", artist: "奥井雅美・松村香澄" },
+    { year: 1995, title: "Forever Love", anime: "X -エックス- 劇場版", artist: "X JAPAN" },
+    { year: 1995, title: "負けないで", anime: "ドラゴンボールZ", artist: "影山ヒロノブ" }, // 補完枠
+
+    // --- 1996年 ---
+    { year: 1996, title: "そばかす", anime: "るろうに剣心", artist: "JUDY AND MARY" },
+    { year: 1996, title: "DAN DAN 心魅かれてく", anime: "ドラゴンボールGT", artist: "FIELD OF VIEW" },
+    { year: 1996, title: "Successful Mission", anime: "セイバーマリオネットJ", artist: "林原めぐみ" },
+    { year: 1996, title: "YOU GET TO BURNING", anime: "機動戦艦ナデシコ", artist: "松澤由美" },
+    { year: 1996, title: "Dreams", anime: "機動新世紀ガンダムX", artist: "ROMANTIC MODE" },
+    { year: 1996, title: "Give a reason", anime: "スレイヤーズNEXT", artist: "林原めぐみ" },
+    { year: 1996, title: "1/2", anime: "るろうに剣心", artist: "川本真琴" },
+    { year: 1996, title: "HEART OF SWORD 〜夜明け前〜", anime: "るろうに剣心", artist: "T.M.Revolution" },
+    { year: 1996, title: "STEP BY STEP", anime: "名探偵コナン", artist: "ZIGGY" },
+    { year: 1996, title: "バリバリ最強No.1", anime: "地獄先生ぬ〜べ〜", artist: "FEEL SO BAD" },
+    { year: 1996, title: "胸がドキドキ", anime: "名探偵コナン", artist: "ザ・ハイロウズ" },
+
+    // --- 1997年（1995〜1996年リストから正しい年代へ移行） ---
+    { year: 1997, title: "輪舞-revolution", anime: "少女革命ウテナ", artist: "奥井雅美" },
+    { year: 1997, title: "1/3の純情な感情", anime: "るろうに剣心", artist: "SIAM SHADE" },
+    { year: 1997, title: "風は未来に吹く", anime: "トライガン", artist: "AKIMA & NEOS" }, // ※正確には1998年トライガン
+
+    // --- 1997年 ---
+    { year: 1997, title: "めざせポケモンマスター", anime: "ポケットモンスター", artist: "松本梨香" },
+    { year: 1997, title: "魂のルフラン", anime: "新世紀エヴァンゲリオン劇場版", artist: "高橋洋子" },
+    { year: 1997, title: "勇者王誕生!", anime: "勇者王ガオガイガー", artist: "遠藤正明" },
+    { year: 1997, title: "君がいない夏", anime: "名探偵コナン", artist: "ZARD" },
+    { year: 1997, title: "謎", anime: "名探偵コナン", artist: "小松未歩" },
+
+    // --- 1998年 ---
+    { year: 1998, title: "Birth", anime: "アキハバラ電脳組", artist: "奥井雅美" },
+    { year: 1998, title: "天使のゆびきり", anime: "彼氏彼女の事情", artist: "福田舞" },
+    { year: 1998, title: "運命のルーレット廻して", anime: "名探偵コナン", artist: "ZARD" },
+    { year: 1998, title: "扉をあけて", anime: "カードキャプターさくら", artist: "ANZA" },
+    { year: 1998, title: "Dearest", anime: "機動戦艦ナデシコ -The prince of darkness-", artist: "松澤由美" },
+    { year: 1998, title: "Tank!", anime: "カウボーイビバップ", artist: "シートベルツ" },
+    { year: 1998, title: "THE REAL FOLK BLUES", anime: "カウボーイビバップ", artist: "山根麻衣" },
+
+    // --- 1999年 ---
+    { year: 1999, title: "ウィーアー!", anime: "ONE PIECE", artist: "きただにひろし" },
+    { year: 1999, title: "Butter-Fly", anime: "デジモンアドベンチャー", artist: "和田光司" },
+    { year: 1999, title: "プラチナ", anime: "カードキャプターさくら", artist: "坂本真綾" },
+    { year: 1999, title: "Driver's High", anime: "GTO", artist: "L'Arc-en-Ciel" },
+    { year: 1999, title: "WILL", anime: "仙界伝 封神演義", artist: "米倉千尋" },
+    { year: 1999, title: "ターンAターン", anime: "ターンエーガンダム", artist: "西城秀樹" },
+    { year: 1999, title: "Wild Flowers", anime: "ゾイド -ZOIDS-", artist: "RAMAR" },
+    { year: 1999, title: "おジャ魔女カーニバル!!", anime: "おジャ魔女どれみ", artist: "MAHO堂" },
+    { year: 1999, title: "dis-", anime: "無限のリヴァイアス", artist: "有坂美香" },
+    { year: 1999, title: "ギリギリchop", anime: "名探偵コナン", artist: "B'z" },
+    { year: 1999, title: "LOVE FLIES", anime: "GTO", artist: "L'Arc-en-Ciel" },
+
+    // --- 2000年（1998〜1999年リストから正しい年代へ移行） ---
+    { year: 2000, title: "君のためにできること", anime: "仙界伝 封神演義", artist: "米倉千尋" },
+    { year: 2000, title: "Believe", anime: "ONE PIECE", artist: "Folder5" },
+    { year: 2000, title: "ヒトリノ夜", anime: "GTO", artist: "ポルノグラフィティ" },
+    { year: 2000, title: "Reset", anime: "無限のリヴァイアス", artist: "酒井ミキオ" },
+
+    // --- 2000年 ---
+    { year: 2000, title: "CHANGE THE WORLD", anime: "犬夜叉", artist: "V6" },
+    { year: 2000, title: "サクラサク", anime: "ラブひな", artist: "林原めぐみ" },
+    { year: 2000, title: "Secret of my heart", anime: "名探偵コナン", artist: "倉木麻衣" },
+    { year: 2000, title: "My Will", anime: "犬夜叉", artist: "dream" },
+    { year: 2000, title: "誓い", anime: "闇の末裔", artist: "奥井雅美" },
+    { year: 2000, title: "VOICE", anime: "遊☆戯☆王デュエルモンスターズ", artist: "CLOUD" },
+    { year: 2000, title: "Shuffle", anime: "遊☆戯☆王デュエルモンスターズ", artist: "奥井雅美" },
+    { year: 2000, title: "夢の果てまで", anime: "アルジェントソーマ", artist: "有坂美香" },
+    { year: 2000, title: "ターゲット〜赤く熱い鼓動〜", anime: "デジモンアドベンチャー02", artist: "和田光司" },
+    { year: 2000, title: "アシタへの羽", anime: "デジモンアドベンチャー02", artist: "AiM" },
+    { year: 2000, title: "君のとなりで", anime: "ラブひな", artist: "堀江由衣" },
+
+    // --- 2001年 ---
+    { year: 2001, title: "Over Soul", anime: "シャーマンキング", artist: "林原めぐみ" },
+    { year: 2001, title: "Get Over", anime: "ヒカルの碁", artist: "dream" },
+    { year: 2001, title: "Love Destiny", anime: "シスター・プリンセス", artist: "堀江由衣" },
+    { year: 2001, title: "The Biggest Dreamer", anime: "デジモンテイマーズ", artist: "和田光司" },
+    { year: 2001, title: "For フルーツバスケット", anime: "フルーツバスケット", artist: "岡崎律子" },
+    { year: 2001, title: "future", anime: "テニスの王子様", artist: "HIRO-X" },
+    { year: 2001, title: "You got game?", anime: "テニスの王子様", artist: "KIMERU" },
+    { year: 2001, title: "かえりみち", anime: "まほろまてぃっく", artist: "川澄綾子" },
+
+    // --- 2002年 ---
+    { year: 2002, title: "キングゲイナー・オーバー!", anime: "OVERMANキングゲイナー", artist: "福山芳樹" },
+    { year: 2002, title: "Northern lights", anime: "シャーマンキング", artist: "林原めぐみ" },
+
+    // --- 2003年 ---
+    { year: 2003, title: "明日へのbrilliant road", anime: "宇宙のステルヴィア", artist: "angela" },
+    { year: 2003, title: "Grip!", anime: "犬夜叉", artist: "Every Little Thing" },
+
+  // --- 2002年 ---
+    { year: 2002, title: "INVOKE", anime: "機動戦士ガンダムSEED", artist: "T.M.Revolution" },
+    { year: 2002, title: "あんなに一緒だったのに", anime: "機動戦士ガンダムSEED", artist: "See-Saw" },
+    { year: 2002, title: "遥か彼方", anime: "NARUTO -ナルト-", artist: "ASIAN KUNG-FU GENERATION" },
+    { year: 2002, title: "ヘミソフィア", anime: "ラーゼフォン", artist: "坂本真綾" },
+    { year: 2002, title: "空耳ケーキ", anime: "あずまんが大王", artist: "Oranges & Lemons" },
+    { year: 2002, title: "Reckless fire", anime: "スクライド", artist: "井出泰彰" }, // ※2001/2002年周辺
+
+    // --- 2003年 ---
+    { year: 2003, title: "メリッサ", anime: "鋼の錬金術師", artist: "ポルノグラフィティ" },
+    { year: 2003, title: "READY STEADY GO", anime: "鋼の錬金術師", artist: "L'Arc-en-Ciel" },
+    { year: 2003, title: "消せない罪", anime: "鋼の錬金術師", artist: "北出菜奈" },
+    { year: 2003, title: "扉の向こうへ", anime: "鋼の錬金術師", artist: "Yellow Generation" },
+    { year: 2003, title: "Motherland", anime: "鋼の錬金術師", artist: "Crystal Kay" },
+    { year: 2003, title: "Believe", anime: "機動戦士ガンダムSEED", artist: "玉置成実" },
+    { year: 2003, title: "Shangri-La", anime: "蒼穹のファフナー", artist: "angela" },
+    { year: 2003, title: "太陽の楽園", anime: "人魚姫マーメイドメロディー ぴちぴちピッチ", artist: "神戸みゆき" },
+    { year: 2003, title: "SKILL", anime: "第2次スーパーロボット大戦α", artist: "JAM Project" },
+    { year: 2003, title: "大好きなシャツ", anime: "ぽぽたん", artist: "UNDER17" },
+
+    // --- 2004年（正しい年代へ移行） ---
+    { year: 2004, title: "リライト", anime: "鋼の錬金術師", artist: "ASIAN KUNG-FU GENERATION" },
+    { year: 2004, title: "DAN ZEN! ふたりはプリキュア", anime: "ふたりはプリキュア", artist: "五條真由美" },
+    { year: 2004, title: "GO!!!", anime: "NARUTO -ナルト-", artist: "FLOW" },
+
+ // --- 2004年 ---
+    { year: 2004, title: "ignited -イグナイテッド-", anime: "機動戦士ガンダムSEED DESTINY", artist: "T.M.Revolution" },
+    { year: 2004, title: "Reason", anime: "機動戦士ガンダムSEED DESTINY", artist: "玉置成実" },
+    { year: 2004, title: "Life Goes On", anime: "機動戦士ガンダムSEED DESTINY", artist: "有坂美香" },
+    { year: 2004, title: "銀河鉄道は遥かなり", anime: "銀河鉄道物語", artist: "ささきいさお" },
+    { year: 2004, title: "胸いっぱい…", anime: "冒険王ビィト", artist: "きただにひろし" },
+
+    // --- 2005年 ---
+    { year: 2005, title: "創聖のアクエリオン", anime: "創聖のアクエリオン", artist: "AKINO" },
+    { year: 2005, title: "PRIDE", anime: "機動戦士ガンダムSEED DESTINY", artist: "HIGH and MIGHTY COLOR" },
+    { year: 2005, title: "僕たちの行方", anime: "機動戦士ガンダムSEED DESTINY", artist: "高橋瞳" },
+    { year: 2005, title: "Wings of Words", anime: "機動戦士ガンダムSEED DESTINY", artist: "CHEMISTRY" },
+    { year: 2005, title: "DAYS", anime: "交響詩篇エウレカセブン", artist: "FLOW" },
+    { year: 2005, title: "秘密基地", anime: "交響詩篇エウレカセブン", artist: "高田梢枝" },
+    { year: 2005, title: "少年ハート", anime: "交響詩篇エウレカセブン", artist: "HOME MADE 家族" },
+    { year: 2005, title: "太陽の真ん中へ", anime: "交響詩篇エウレカセブン", artist: "BIVATTCH" },
+    { year: 2005, title: "sakura", anime: "交響詩篇エウレカセブン", artist: "NIRGILIS" },
+    { year: 2005, title: "Fly Away", anime: "交響詩篇エウレカセブン", artist: "伊沢麻未" },
+    { year: 2005, title: "Canvas", anime: "交響詩篇エウレカセブン", artist: "COOL JOKE" },
+    { year: 2005, title: "Tip Taps Tip", anime: "交響詩篇エウレカセブン", artist: "HALCALI" },
+    { year: 2005, title: "DAN ZEN! ふたりはプリキュア (Max Heart ver.)", anime: "ふたりはプリキュア Max Heart", artist: "五條真由美" },
+
+    // --- 2006年（元リストから正しい年代へ移行） ---
+    { year: 2006, title: "ハレ晴レユカイ", anime: "涼宮ハルヒの憂鬱", artist: "平野綾・茅原実里・後藤邑子" },
+    { year: 2006, title: "冒険でしょでしょ?", anime: "涼宮ハルヒの憂鬱", artist: "平野綾" },
+    { year: 2006, title: "God knows...", anime: "涼宮ハルヒの憂鬱", artist: "平野綾" },
+    { year: 2006, title: "Lost my music", anime: "涼宮ハルヒの憂鬱", artist: "平野綾" },
+    { year: 2006, title: "COLORS", anime: "コードギアス 反逆のルルーシュ", artist: "FLOW" },
+    { year: 2006, title: "ガーネット", anime: "時をかける少女", artist: "奥華子" },
+    { year: 2006, title: "変わらないもの", anime: "時をかける少女", artist: "奥華子" },
+
+  // --- 2006年 ---
+    { year: 2006, title: "未来への咆哮", anime: "マブラヴ オルタネイティヴ (PC/OVA)", artist: "JAM Project" },
+    { year: 2006, title: "Disillusion", anime: "Fate/stay night", artist: "タイナカサチ" },
+    { year: 2006, title: "ひぐらしのなく頃に", anime: "ひぐらしのなく頃に", artist: "島みやえい子" },
+    { year: 2006, title: "why,or why not", anime: "ひぐらしのなく頃に", artist: "大嶋啓之 feat. 片霧烈火" },
+    { year: 2006, title: "勇侠青春謳", anime: "コードギアス 反逆のルルーシュ", artist: "ALI PROJECT" },
+    { year: 2006, title: "Kirameku Namida wa Hoshi ni", anime: "Fate/stay night", artist: "タイナカサチ" },
+    { year: 2006, title: "ヒカリ", anime: "Fate/stay night", artist: "タイナカサチ" },
+
+    // --- 2007年 ---
+    { year: 2007, title: "もってけ!セーラーふく", anime: "らき☆すた", artist: "泉こなた(平野綾), 柊かがみ(加藤英美里), 柊つかさ(福原香織), 高良みゆき(遠藤綾)" },
+    { year: 2007, title: "空色デイズ", anime: "天元突破グレンラガン", artist: "中川翔子" },
+    { year: 2007, title: "アンインストール", anime: "ぼくらの", artist: "石川智晶" },
+    { year: 2007, title: "解読不能", anime: "コードギアス 反逆のルルーシュ", artist: "Jinn" },
+    { year: 2007, title: "モザイクカケラ", anime: "コードギアス 反逆のルルーシュ", artist: "SunSet Swish" },
+    { year: 2007, title: "瞳の翼", anime: "コードギアス 反逆のルルーシュ", artist: "access" },
+    { year: 2007, title: "風のつばさ", anime: "風の少女エミリー", artist: "秋島ルイ" },
+    { year: 2007, title: "トライアングラー", anime: "マクロスF", artist: "坂本真綾" },
+    { year: 2007, title: "JOINT", anime: "灼眼のシャナII", artist: "川田まみ" },
+    { year: 2007, title: "triangle", anime: "灼眼のシャナII", artist: "川田まみ" },
+    { year: 2007, title: "Daybreak's Bell", anime: "機動戦士ガンダム00", artist: "L'Arc-en-Ciel" },
+    { year: 2007, title: "奈落の花", anime: "ひぐらしのなく頃に解", artist: "島みやえい子" },
+    { year: 2007, title: "対象a", anime: "ひぐらしのなく頃に解", artist: "anabel" },
+    { year: 2007, title: "Ash Like Snow", anime: "機動戦士ガンダム00", artist: "the brilliant green" },
+    { year: 2007, title: "罠", anime: "機動戦士ガンダム00", artist: "THE BACK HORN" },
+
+    // --- 2008年 ---
+    { year: 2008, title: "ライオン", anime: "マクロスF", artist: "May'n / 中島愛" },
+    { year: 2008, title: "星間飛行", anime: "マクロスF", artist: "ランカ・リー＝中島愛" },
+    { year: 2008, title: "ノーザンクロス", anime: "マクロスF", artist: "シェリル・ノーム starring May'n" },
+    { year: 2008, title: "ダイアモンド クレバス", anime: "マクロスF", artist: "シェリル・ノーム starring May'n" },
+    { year: 2008, title: "射手座☆午後九時Don't be late", anime: "マクロスF", artist: "シェリル・ノーム starring May'n" },
+    { year: 2008, title: "フレンズ", anime: "機動戦士ガンダム00", artist: "ステファニー" },
+    { year: 2008, title: "儚くも永久のカナシ", anime: "機動戦士ガンダム00 2nd Season", artist: "UVERworld" },
+    { year: 2008, title: "泪のムコウ", anime: "機動戦士ガンダム00 2nd Season", artist: "ステレオポニー" },
+    { year: 2008, title: "Prototype", anime: "機動戦士ガンダム00 2nd Season", artist: "石川智晶" },
+
+    // --- 2009年（正しい年代へ移行） ---
+    { year: 2009, title: "君の知らない物語", anime: "化物語", artist: "supercell" },
+    { year: 2009, title: "only my railgun", anime: "とある科学の超電磁砲", artist: "fripSide" },
+    { year: 2009, title: "again", anime: "鋼の錬金術師 FULLMETAL ALCHEMIST", artist: "YUI" },
+    { year: 2009, title: "嘘", anime: "鋼の錬金術師 FULLMETAL ALCHEMIST", artist: "シド" },
+    { year: 2009, title: "ホログラム", anime: "鋼の錬金術師 FULLMETAL ALCHEMIST", artist: "NICO Touches the Walls" },
+    { year: 2009, title: "ゴールデンタイムラバー", anime: "鋼の錬金術師 FULLMETAL ALCHEMIST", artist: "スキマスイッチ" },
+    { year: 2009, title: "LET IT OUT", anime: "鋼の錬金術師 FULLMETAL ALCHEMIST", artist: "福原美穂" },
+    { year: 2009, title: "つないだ手", anime: "鋼の錬金術師 FULLMETAL ALCHEMIST", artist: "Lil'B" },
+
+    // --- 2010年（正しい年代へ移行） ---
+    { year: 2010, title: "Period", anime: "鋼の錬金術師 FULLMETAL ALCHEMIST", artist: "CHEMISTRY" },
+    { year: 2010, title: "レイン", anime: "鋼の錬金術師 FULLMETAL ALCHEMIST", artist: "シド" },
+    { year: 2010, title: "瞬間センチメンタル", anime: "鋼の錬金術師 FULLMETAL ALCHEMIST", artist: "SCANDAL" },
+    { year: 2010, title: "RAY OF LIGHT", anime: "鋼の錬金術師 FULLMETAL ALCHEMIST", artist: "中川翔子" },
+
+ // --- 2009年 ---
+    { year: 2009, title: "Cagayake!GIRLS", anime: "けいおん!", artist: "放課後ティータイム" },
+    { year: 2009, title: "Don't say \"lazy\"", anime: "けいおん!", artist: "放課後ティータイム" },
+
+    // --- 2010年 ---
+    { year: 2010, title: "GO! GO! MANIAC", anime: "けいおん!!", artist: "放課後ティータイム" },
+    { year: 2010, title: "Listen!!", anime: "けいおん!!", artist: "放課後ティータイム" },
+    { year: 2010, title: "Utauyo!!MIRACLE", anime: "けいおん!!", artist: "放課後ティータイム" },
+    { year: 2010, title: "NO,Thank You!", anime: "けいおん!!", artist: "放課後ティータイム" },
+    { year: 2010, title: "My Soul, Your Beats!", anime: "Angel Beats!", artist: "Lia" },
+    { year: 2010, title: "Brave Song", anime: "Angel Beats!", artist: "多田葵" },
+    { year: 2010, title: "Crow Song", anime: "Angel Beats!", artist: "Girls Dead Monster" },
+    { year: 2010, title: "Alchemy", anime: "Angel Beats!", artist: "Girls Dead Monster" },
+    { year: 2010, title: "LEVEL5-judgelight-", anime: "とある科学の超電磁砲", artist: "fripSide" },
+    { year: 2010, title: "Dear My Friend -まだ見ぬ未来へ-", anime: "とある科学の超電磁砲", artist: "ELISA" },
+    { year: 2010, title: "Real Force", anime: "とある科学の超電磁砲", artist: "ELISA" },
+    { year: 2010, title: "Irony", anime: "俺の妹がこんなに可愛いわけがない", artist: "ClariS" },
+
+    // --- 2011年 ---
+    { year: 2011, title: "コネクト", anime: "魔法少女まどか☆マギカ", artist: "ClariS" },
+    { year: 2011, title: "Magia", anime: "魔法少女まどか☆マギカ", artist: "Kalafina" },
+    { year: 2011, title: "マジLOVE1000%", anime: "うたの☆プリンスさまっ♪ マジLOVE1000%", artist: "ST☆RISH" },
+    { year: 2011, title: "oath sign", anime: "Fate/Zero", artist: "LiSA" },
+    { year: 2011, title: "MEMORIA", anime: "Fate/Zero", artist: "藍井エイル" },
+    { year: 2011, title: "Hacking to the Gate", anime: "STEINS;GATE", artist: "いとうかなこ" },
+    { year: 2011, title: "オリオンをなぞる", anime: "TIGER & BUNNY", artist: "UNISON SQUARE GARDEN" },
+    { year: 2011, title: "My Dearest", anime: "ギルティクラウン", artist: "EGOIST" },
+    { year: 2011, title: "CORE PRIDE", anime: "青の祓魔師", artist: "UVERworld" },
+    { year: 2011, title: "SHOOT!", anime: "ロウきゅーぶ!", artist: "RO-KYU-BU!" },
+    { year: 2011, title: "Departures 〜あなたにおくるアイの歌〜", anime: "ギルティクラウン", artist: "EGOIST" },
+    { year: 2011, title: "The Everlasting Guilty Crown", anime: "ギルティクラウン", artist: "EGOIST" },
+    { year: 2011, title: "IN MY WORLD", anime: "青の祓魔師", artist: "ROOKIEZ is PUNK'D" },
+    { year: 2011, title: "Take off", anime: "青の祓魔師", artist: "2PM" },
+    { year: 2011, title: "告白", anime: "ギルティクラウン", artist: "supercell" },
+    { year: 2011, title: "Party Love〜およげ!ウニさん〜", anime: "ロウきゅーぶ!", artist: "RO-KYU-BU!" },
+
+    // --- 2012年（移行） ---
+    { year: 2012, title: "crossing field", anime: "ソードアート・オンライン", artist: "LiSA" },
+    { year: 2012, title: "INNOCENCE", anime: "ソードアート・オンライン", artist: "藍井エイル" },
+    { year: 2012, title: "Overfly", anime: "ソードアート・オンライン", artist: "春奈るな" },
+    { year: 2012, title: "to the beginning", anime: "Fate/Zero", artist: "Kalafina" },
+    { year: 2012, title: "空は高く風は歌う", anime: "Fate/Zero", artist: "春奈るな" },
+    { year: 2012, title: "太陽曰く燃えよカオス", anime: "這いよれ! ニャル子さん", artist: "後ろから這いよる隊G" },
+    { year: 2012, title: "Sparkling Daydream", anime: "中二病でも恋がしたい!", artist: "ZAQ" },
+    { year: 2012, title: "INSIDE IDENTITY", anime: "中二病でも恋がしたい!", artist: "Black Raison d'etre" },
+    { year: 2012, title: "優しさの理由", anime: "氷菓", artist: "ChouCho" },
+    { year: 2012, title: "未完成ストライド", anime: "氷菓", artist: "こだまさおり" },
+    { year: 2012, title: "まどろみの約束", anime: "氷菓", artist: "千反田える、伊原摩耶花" },
+
+    // --- 2013年（移行） ---
+    { year: 2013, title: "マジLOVE2000%", anime: "うたの☆プリンスさまっ♪ マジLOVE2000%", artist: "ST☆RISH" },
+    { year: 2013, title: "カノン", anime: "うたの☆プリンスさまっ♪ マジLOVE2000%", artist: "宮野真守" },
+
+  // --- 2011年（移行枠） ---
+    { year: 2011, title: "READY!!", anime: "アイドルマスター", artist: "765PRO ALLSTARS" },
+    { year: 2011, title: "CHANGE!!!!", anime: "アイドルマスター", artist: "765PRO ALLSTARS" },
+
+    // --- 2012年 ---
+    { year: 2012, title: "ジョジョ 〜その血の運命〜", anime: "ジョジョの奇妙な冒険", artist: "富永TOMMY弘明" },
+    { year: 2012, title: "名前のない怪物", anime: "PSYCHO-PASS", artist: "EGOIST" },
+    { year: 2012, title: "departure!", anime: "HUNTER×HUNTER", artist: "小野正利" },
+    { year: 2012, title: "abnormalize", anime: "PSYCHO-PASS", artist: "凛として時雨" },
+
+    // --- 2013年 ---
+    { year: 2013, title: "BLOODY STREAM", anime: "ジョジョの奇妙な冒険", artist: "Coda" },
+    { year: 2013, title: "紅蓮の弓矢", anime: "進撃の巨人", artist: "Linked Horizon" },
+    { year: 2013, title: "自由の翼", anime: "進撃の巨人", artist: "Linked Horizon" },
+    { year: 2013, title: "美しき残酷な世界", anime: "進撃の巨人", artist: "日笠陽子" },
+    { year: 2013, title: "great escape", anime: "進撃の巨人", artist: "cinema staff" },
+    { year: 2013, title: "デート・ア・ライブ", anime: "デート・ア・ライブ", artist: "sweet ARMS" },
+    { year: 2013, title: "ゲラゲラポーのうた", anime: "妖怪ウォッチ", artist: "キング・クリームソーダ" },
+    { year: 2013, title: "境界の彼方", anime: "境界の彼方", artist: "茅原実里" },
+    { year: 2013, title: "Daisy", anime: "境界の彼方", artist: "STEREO DIVE FOUNDATION" },
+    { year: 2013, title: "シリウス", anime: "キルラキル", artist: "藍井エイル" },
+    { year: 2013, title: "database", anime: "ログ・ホライズン", artist: "MAN WITH A MISSION" },
+    { year: 2013, title: "lull 〜そして僕らは〜", anime: "凪のあすから", artist: "Ray" },
+    { year: 2013, title: "Out of Control", anime: "PSYCHO-PASS", artist: "Nothing's Carved In Stone" },
+    { year: 2013, title: "All Alone With You", anime: "PSYCHO-PASS", artist: "EGOIST" },
+    { year: 2013, title: "革命デュアリズム", anime: "革命機ヴァルヴレイヴ", artist: "水樹奈々×T.M.Revolution" },
+    { year: 2013, title: "Preserved Roses", anime: "革命機ヴァルヴレイヴ", artist: "T.M.Revolution×水樹奈々" },
+    { year: 2013, title: "sister's noise", anime: "とある科学の超電磁砲S", artist: "fripSide" },
+    { year: 2013, title: "eternal reality", anime: "とある科学の超電磁砲S", artist: "fripSide" },
+    { year: 2013, title: "SAVIOR OF SONG", anime: "蒼き鋼のアルペジオ -アルス・ノヴァ-", artist: "ナノ" },
+    { year: 2013, title: "ブレイブルー", anime: "蒼き鋼のアルペジオ -アルス・ノヴァ-", artist: "ナノ" },
+
+    // --- 2014年（移行枠） ---
+    { year: 2014, title: "ambiguous", anime: "キルラキル", artist: "GARNiDELiA" },
+
+ // --- 2014年 ---
+    { year: 2014, title: "シルエット", anime: "NARUTO -ナルト- 疾風伝", artist: "KANA-BOON" },
+    { year: 2014, title: "unravel", anime: "東京喰種トーキョーグール", artist: "TK from 凛として時雨" },
+    { year: 2014, title: "光るなら", anime: "四月は君の嘘", artist: "Goose house" },
+    { year: 2014, title: "IGNITE", anime: "ソードアート・オンラインII", artist: "藍井エイル" },
+    { year: 2014, title: "daze", anime: "メカクシティアクターズ", artist: "GARNiDELiA" },
+    { year: 2014, title: "エクストラ・マジック・アワー", anime: "甘城ブリリアントパーク", artist: "AKINO with bless4" },
+    { year: 2014, title: "Let Me Hear", anime: "寄生獣 セイの格率", artist: "Fear, and Loathing in Las Vegas" },
+    { year: 2014, title: "ギミー!レボリューション", anime: "俺、ツインテールになります。", artist: "内田真礼" },
+    { year: 2014, title: "七色シンフォニー", anime: "四月は君の嘘", artist: "コアラモード." },
+    { year: 2014, title: "キラメキ", anime: "四月は君の嘘", artist: "wacci" },
+    { year: 2014, title: "オレンジ", anime: "四月は君の嘘", artist: "7!!" },
+    { year: 2014, title: "courage", anime: "ソードアート・オンラインII", artist: "戸松遥" },
+    { year: 2014, title: "Startear", anime: "ソードアート・オンラインII", artist: "春奈るな" },
+    { year: 2014, title: "days", anime: "メカクシティアクターズ", artist: "じん feat. Lia" },
+
+    // --- 2015年 ---
+    { year: 2015, title: "シュガーソングとビターステップ", anime: "血界戦線", artist: "UNISON SQUARE GARDEN" },
+    { year: 2015, title: "はなまるぴっぴはよいこだけ", anime: "おそ松さん", artist: "A応P" },
+    { year: 2015, title: "Raise your flag", anime: "機動戦士ガンダム 鉄血のオルフェンズ", artist: "MAN WITH A MISSION" },
+    { year: 2015, title: "Brave Shine", anime: "Fate/stay night [Unlimited Blade Works]", artist: "Aimer" },
+    { year: 2015, title: "Bravely You", anime: "Charlotte", artist: "Lia" },
+    { year: 2015, title: "灼け落ちない翼", anime: "Charlotte", artist: "多田葵" },
+    { year: 2015, title: "かくしん的☆めたまるふょ〜ぜっ!", anime: "干物妹!うまるちゃん", artist: "土間うまる (田中あいみ)" },
+    { year: 2015, title: "プライド革命", anime: "銀魂゜", artist: "CHiCO with HoneyWorks" },
+    { year: 2015, title: "Hello,world!", anime: "血界戦線", artist: "BUMP OF CHICKEN" },
+    { year: 2015, title: "SIX SAME FACES 〜今夜は最高ーーー!!!〜", anime: "おそ松さん", artist: "イヤミと総おそ松衆" },
+    { year: 2015, title: "オルフェンズの涙", anime: "機動戦士ガンダム 鉄血のオルフェンズ", artist: "MISIA" },
+    { year: 2015, title: "LAST STARDUST", anime: "Fate/stay night [Unlimited Blade Works]", artist: "Aimer" },
+    { year: 2015, title: "海色", anime: "艦隊これくしょん -艦これ-", artist: "AKINO from bless4" },
+
+    // --- 2016年（正しい年代へ移行） ---
+    { year: 2016, title: "THE DAY", anime: "僕のヒーローアカデミア", artist: "ポルノグラフィティ" },
+    { year: 2016, title: "HEROES", anime: "僕のヒーローアカデミア", artist: "Brian the Sun" },
+
+// --- 2016年 ---
+    { year: 2016, title: "前前前世", anime: "君の名は。", artist: "RADWIMPS" },
+    { year: 2016, title: "Redo", anime: "Re:ゼロから始める異世界生活", artist: "鈴木このみ" },
+    { year: 2016, title: "STYX HELIX", anime: "Re:ゼロから始める異世界生活", artist: "MYTH & ROID" },
+    { year: 2016, title: "KABANERI OF THE IRON FORTRESS", anime: "甲鉄城のカバネリ", artist: "EGOIST" },
+    { year: 2016, title: "99", anime: "モブサイコ100", artist: "MOB CHOIR" },
+    { year: 2016, title: "青空Jumping Heart", anime: "ラブライブ!サンシャイン!!", artist: "Aqours" },
+    { year: 2016, title: "HISTORY MAKER", anime: "ユーリ!!! on ICE", artist: "DEAN FUJIOKA" },
+    { year: 2016, title: "スパークル", anime: "君の名は。", artist: "RADWIMPS" },
+    { year: 2016, title: "夢灯籠", anime: "君の名は。", artist: "RADWIMPS" },
+    { year: 2016, title: "なんでもないや", anime: "君の名は。", artist: "RADWIMPS" },
+    { year: 2016, title: "Paradisus-Paradoxum", anime: "Re:ゼロから始める異世界生活", artist: "MYTH & ROID" },
+    { year: 2016, title: "Stay Alive", anime: "Re:ゼロから始める異世界生活", artist: "高橋李依" },
+    { year: 2016, title: "ninelie", anime: "甲鉄城のカバネリ", artist: "Aimer with chelly (EGOIST)" },
+    { year: 2016, title: "Refrain Boy", anime: "モブサイコ100", artist: "ALL OFF" },
+    { year: 2016, title: "ユメ語るよりユメ歌おう", anime: "ラブライブ!サンシャイン!!", artist: "Aqours" },
+
+    // --- 2017年 ---
+    { year: 2017, title: "ピースサイン", anime: "僕のヒーローアカデミア", artist: "米津玄師" },
+    { year: 2017, title: "打上花火", anime: "打ち上げ花火、下から見るか?横から見るか?", artist: "DAOKO×米津玄師" },
+    { year: 2017, title: "ようこそジャパリパークへ", anime: "けものフレンズ", artist: "どうぶつビスケッツ×PPP" },
+    { year: 2017, title: "心臓を捧げよ!", anime: "進撃の巨人 Season 2", artist: "Linked Horizon" },
+    { year: 2017, title: "ステップアップLOVE", anime: "血界戦線 & BEYOND", artist: "岡村靖幸×DAOKO" },
+    { year: 2017, title: "fake town baby", anime: "血界戦線 & BEYOND", artist: "UNISON SQUARE GARDEN" },
+    { year: 2017, title: "Here", anime: "魔法使いの嫁", artist: "JUNNA" },
+    { year: 2017, title: "Deep in Abyss", anime: "メイドインアビス", artist: "リコ (富田美憂) & レグ (伊瀬茉莉也)" },
+    { year: 2017, title: "空に歌えば", anime: "僕のヒーローアカデミア", artist: "amazarashi" },
+    { year: 2017, title: "だから、ひとりじゃない", anime: "僕のヒーローアカデミア", artist: "Little Glee Monster" },
+    { year: 2017, title: "夕暮れの鳥", anime: "進撃の巨人 Season 2", artist: "神聖かまってちゃん" },
+    { year: 2017, title: "環-cycle-", anime: "魔法使いの嫁", artist: "糸奇はな" },
+    { year: 2017, title: "旅の左手、果ての右手", anime: "メイドインアビス", artist: "リコ (富田美憂)、レグ (伊瀬茉莉也)、ナナチ (井澤詩織)" },
+    { year: 2017, title: "トモダチのうた", anime: "けものフレンズ", artist: "PPP" },
+
+// --- 2018年 ---
+    { year: 2018, title: "Nameless Story", anime: "転生したらスライムだった件", artist: "寺島拓篤" },
+    { year: 2018, title: "ADAMAS", anime: "ソードアート・オンライン アリシゼーション", artist: "LiSA" },
+    { year: 2018, title: "フィクション", anime: "ヲタクに恋は難しい", artist: "sumika" },
+    { year: 2018, title: "Fighting Gold", anime: "ジョジョの奇妙な冒険 黄金の風", artist: "Coda" },
+    { year: 2018, title: "ODD FUTURE", anime: "僕のヒーローアカデミア", artist: "UVERworld" },
+    { year: 2018, title: "流星", anime: "ソードアート・オンライン オルタナティブ ガンゲイル・オンライン", artist: "藍井エイル" },
+    { year: 2018, title: "徒花ネクロマンシー", anime: "ゾンビランドサガ", artist: "フランシュシュ" },
+    { year: 2018, title: "Another colony", anime: "転生したらスライムだった件", artist: "TRUE" },
+    { year: 2018, title: "アイリス", anime: "ソードアート・オンライン アリシゼーション", artist: "藍井エイル" },
+    { year: 2018, title: "キミの隣", anime: "ヲタクに恋は難しい", artist: "halca" },
+    { year: 2018, title: "Make my story", anime: "僕のヒーローアカデミア", artist: "Lenny code fiction" },
+    { year: 2018, title: "光へ", anime: "ゾンビランドサガ", artist: "フランシュシュ" },
+    { year: 2018, title: "POP TEAM EPIC", anime: "ポプテピピック", artist: "上坂すみれ" },
+
+    // --- 2019年 ---
+    { year: 2019, title: "Resister", anime: "ソードアート・オンライン アリシゼーション", artist: "綾野ましろ" },
+    { year: 2019, title: "forget-me-not", anime: "ソードアート・オンライン アリシゼーション", artist: "ReoNa" },
+    { year: 2019, title: "紅蓮華", anime: "鬼滅の刃", artist: "LiSA" },
+    { year: 2019, title: "インフェルノ", anime: "炎炎ノ消防隊", artist: "Mrs. GREEN APPLE" },
+    { year: 2019, title: "愛にできることはまだあるかい", anime: "天気の子", artist: "RADWIMPS" },
+    { year: 2019, title: "火炎", anime: "どろろ", artist: "女王蜂" },
+    { year: 2019, title: "Good Morning World!", anime: "Dr.STONE", artist: "BURNOUT SYNDROMES" },
+    { year: 2019, title: "ポラリス", anime: "僕のヒーローアカデミア", artist: "BLUE ENCOUNT" },
+    { year: 2019, title: "裏切り者のレクイエム", anime: "ジョジョの奇妙な冒険 黄金の風", artist: "ハセガワダイスケ" },
+    { year: 2019, title: "ラブ・ドラマティック", anime: "かぐや様は告らせたい〜天才たちの恋愛頭脳戦〜", artist: "鈴木雅之" },
+    { year: 2019, title: "from the edge", anime: "鬼滅の刃", artist: "FictionJunction feat. LiSA" },
+    { year: 2019, title: "veil", anime: "炎炎ノ消防隊", artist: "須田景凪" },
+    { year: 2019, title: "Grand Escape", anime: "天気の子", artist: "RADWIMPS feat.三浦透子" },
+    { year: 2019, title: "大丈夫", anime: "天気の子", artist: "RADWIMPS" },
+    { year: 2019, title: "さよならごっこ", anime: "どろろ", artist: "amazarashi" },
+    { year: 2019, title: "三原色", anime: "Dr.STONE", artist: "PELICAN FANCLUB" },
+    { year: 2019, title: "航海の唄", anime: "僕のヒーローアカデミア", artist: "さユり" },
+
+    // --- 2020年 ---
+    { year: 2020, title: "廻廻奇譚", anime: "呪術廻戦", artist: "Eve" },
+    { year: 2020, title: "LOST IN PARADISE", anime: "呪術廻戦", artist: "ALI feat. AKLO" },
+    { year: 2020, title: "炎", anime: "劇場版 鬼滅の刃 無限列車編", artist: "LiSA" },
+    { year: 2020, title: "ANIMA", anime: "ソードアート・オンライン アリシゼーション War of Underworld", artist: "ReoNa" },
+    { year: 2020, title: "Realize", anime: "Re:ゼロから始める異世界生活 2nd season", artist: "鈴木このみ" },
+    { year: 2020, title: "虹", anime: "STAND BY ME ドラえもん 2", artist: "菅田将暉" },
+    { year: 2020, title: "DADDY ! DADDY ! DO !", anime: "かぐや様は告らせたい?〜天才たちの恋愛頭脳戦〜", artist: "鈴木雅之 feat. 鈴木愛理" },
+    { year: 2020, title: "I will...", anime: "ソードアート・オンライン アリシゼーション War of Underworld", artist: "藍井エイル" },
+    { year: 2020, title: "Memento", anime: "Re:ゼロから始める異世界生活 2nd season", artist: "nonoc" },
+    { year: 2020, title: "風に吹かれて", anime: "かぐや様は告らせたい?〜天才たちの恋愛頭脳戦〜", artist: "福原遥" },
+    { year: 2020, title: "Will", anime: "劇場版 ヴァイオレット・エヴァーガーデン", artist: "TRUE" },
+
+    // --- 2021年（移行枠） ---
+    { year: 2021, title: "VIVID VICE", anime: "呪術廻戦", artist: "Who-ya Extended" },
+    { year: 2021, title: "give it back", anime: "呪術廻戦", artist: "Cö shu Nie" },    
+
+// --- 2016年（過去枠修正分） ---
+    { year: 2016, title: "嫌いなはずだった", anime: "好きになるその瞬間を。〜告白実行委員会〜", artist: "HoneyWorks feat. 鎖那" },
+
+    // --- 2021年 ---
+    { year: 2021, title: "VIVID VICE", anime: "呪術廻戦", artist: "Who-ya Extended" },
+    { year: 2021, title: "give it back", anime: "呪術廻戦", artist: "Cö shu Nie" },
+    { year: 2021, title: "Storyteller", anime: "転生したらスライムだった件 第2期", artist: "TRUE" },
+    { year: 2021, title: "Cry Baby", anime: "東京リベンジャーズ", artist: "Official髭男dism" },
+    { year: 2021, title: "一途", anime: "劇場版 呪術廻戦 0", artist: "King Gnu" },
+    { year: 2021, title: "逆夢", anime: "劇場版 呪術廻戦 0", artist: "King Gnu" },
+    { year: 2021, title: "明け星", anime: "鬼滅の刃 無限列車編", artist: "LiSA" },
+    { year: 2021, title: "白銀", anime: "鬼滅の刃 無限列車編", artist: "LiSA" },
+    { year: 2021, title: "怪物", anime: "BEASTARS", artist: "YOASOBI" },
+    { year: 2021, title: "優しい彗星", anime: "BEASTARS", artist: "YOASOBI" },
+    { year: 2021, title: "One Last Kiss", anime: "シン・エヴァンゲリオン劇場版", artist: "宇多田ヒカル" },
+    { year: 2021, title: "Sing My Pleasure", anime: "Vivy -Fluorite Eye's Song-", artist: "ヴィヴィ (八木海莉)" },
+    { year: 2021, title: "Like Flames", anime: "転生したらスライムだった件 第2期", artist: "MindaRyn" },
+    { year: 2021, title: "STORYSEEKER", anime: "転生したらスライムだった件 第2期", artist: "STEREO DIVE FOUNDATION" },
+    { year: 2021, title: "Reincarnate", anime: "転生したらスライムだった件 第2期", artist: "寺島拓篤" },
+    { year: 2021, title: "トーキョーワンダー。", anime: "東京リベンジャーズ", artist: "泣き虫☔" },
+
+    // --- 2022年 ---
+    { year: 2022, title: "残響散歌", anime: "鬼滅の刃 遊郭編", artist: "Aimer" },
+    { year: 2022, title: "ミックスナッツ", anime: "SPY×FAMILY", artist: "Official髭男dism" },
+    { year: 2022, title: "喜劇", anime: "SPY×FAMILY", artist: "星野源" },
+    { year: 2022, title: "SOUVENIR", anime: "SPY×FAMILY", artist: "BUMP OF CHICKEN" },
+    { year: 2022, title: "色彩", anime: "SPY×FAMILY", artist: "yama" },
+    { year: 2022, title: "KICK BACK", anime: "チェンソーマン", artist: "米津玄師" },
+    { year: 2022, title: "CHAINSAW BLOOD", anime: "チェンソーマン", artist: "Vaundy" },
+    { year: 2022, title: "ちゅ、多様性。", anime: "チェンソーマン", artist: "ano" },
+    { year: 2022, title: "祝福", anime: "機動戦士ガンダム 水星の魔女", artist: "YOASOBI" },
+    { year: 2022, title: "君よ 気高くあれ", anime: "機動戦士ガンダム 水星の魔女", artist: "シユイ" },
+    { year: 2022, title: "新時代", anime: "ONE PIECE FILM RED", artist: "Ado" },
+    { year: 2022, title: "私は最強", anime: "ONE PIECE FILM RED", artist: "Ado" },
+    { year: 2022, title: "青春コンプレックス", anime: "ぼっち・ざ・ろっく！", artist: "結束バンド" },
+    { year: 2022, title: "花の塔", anime: "リコリス・リコイル", artist: "さユり" },
+    { year: 2022, title: "悪魔の子", anime: "進撃の巨人 The Final Season Part 2", artist: "ヒグチアイ" },
+
+  // --- 2023年 ---
+    { year: 2023, title: "アイドル", anime: "【推しの子】", artist: "YOASOBI" },
+    { year: 2023, title: "青のすみか", anime: "呪術廻戦 懐玉・玉折", artist: "キタニタツヤ" },
+    { year: 2023, title: "SPECIALZ", anime: "呪術廻戦 渋谷事変", artist: "King Gnu" },
+    { year: 2023, title: "勇者", anime: "葬送のフリーレン", artist: "YOASOBI" },
+    { year: 2023, title: "絆ノ奇跡", anime: "鬼滅の刃 刀鍛冶の里編", artist: "MAN WITH A MISSION × milet" },
+    { year: 2023, title: "花になって", anime: "薬屋のひとりごと", artist: "緑黄色社会" },
+    { year: 2023, title: "メフィスト", anime: "【推しの子】", artist: "女王蜂" },
+    { year: 2023, title: "燈", anime: "呪術廻戦 懐玉・玉折", artist: "崎山蒼志" },
+    { year: 2023, title: "more than words", anime: "呪術廻戦 渋谷事変", artist: "羊文学" },
+    { year: 2023, title: "Anytime Anywhere", anime: "葬送のフリーレン", artist: "milet" },
+    { year: 2023, title: "コイコガレ", anime: "鬼滅の刃 刀鍛冶の里編", artist: "milet × MAN WITH A MISSION" },
+    { year: 2023, title: "アイコトバ", anime: "薬屋のひとりごと", artist: "アイナ・ジ・エンド" },
+    { year: 2023, title: "slash", anime: "機動戦士ガンダム 水星の魔女", artist: "yama" },
+    { year: 2023, title: "W●RK", anime: "地獄楽", artist: "millennium parade × 椎名林檎" },
+    { year: 2023, title: "ホワイトノイズ", anime: "東京リベンジャーズ 聖夜決戦編", artist: "Official髭男dism" },
+
+    // --- 2024年 ---
+    { year: 2024, title: "Bling-Bang-Bang-Born", anime: "マッシュル-MASHLE- 神覚者候補選抜試験編", artist: "Creepy Nuts" },
+    { year: 2024, title: "ライラック", anime: "忘却バッテリー", artist: "Mrs. GREEN APPLE" },
+    { year: 2024, title: "オトノケ", anime: "ダンダダン", artist: "Creepy Nuts" },
+    { year: 2024, title: "ファタール", anime: "【推しの子】 第2期", artist: "GEMN" },
+    { year: 2024, title: "晴る", anime: "葬送のフリーレン", artist: "ヨルシカ" },
+    { year: 2024, title: "オレンジ", anime: "劇場版ハイキュー!! ゴミ捨て場の決戦", artist: "SPYAIR" },
+    { year: 2024, title: "アンビバレント", anime: "薬屋のひとりごと", artist: "Uru" },
+    { year: 2024, title: "夢幻", anime: "鬼滅の刃 柱稽古編", artist: "MY FIRST STORY × HYDE" },
+    { year: 2024, title: "シカ色デイズ", anime: "しかのこのこのここしたんたん", artist: "シカ部" },
+    { year: 2024, title: "忘レナ唄", anime: "忘却バッテリー", artist: "マカロニえんぴつ" },
+    { year: 2024, title: "TAIDADA", anime: "ダンダダン", artist: "ZUTOMAYO" },
+    { year: 2024, title: "Burning", anime: "【推しの子】 第2期", artist: "羊文学" },
+    { year: 2024, title: "愛は薬", anime: "薬屋のひとりごと", artist: "wacci" },
+    { year: 2024, title: "永久 -トコシエ-", anime: "鬼滅の刃 柱稽古編", artist: "HYDE × MY FIRST STORY" },
+    { year: 2024, title: "FREEDOM", anime: "機動戦士ガンダムSEED FREEDOM", artist: "西川貴教 with t.komuro" },
+    { year: 2024, title: "PEACEKEEPER", anime: "転生したらスライムだった件 第3期", artist: "TRUE" },
+    { year: 2024, title: "レナセールセレナーデ", anime: "転生したらスライムだった件 第3期", artist: "ももいろクローバーZ" },
+    { year: 2024, title: "Miracle Soup", anime: "転生したらスライムだった件 第3期", artist: "岡咲美保" },
+    { year: 2024, title: "Same Blue", anime: "アオのハコ", artist: "Official髭男dism" },
+    { year: 2024, title: "カーテンコール", anime: "僕のヒーローアカデミア", artist: "優里" },
+    { year: 2024, title: "絶対零度", anime: "WIND BREAKER", artist: "なとり" },
+    { year: 2024, title: "プランA", anime: "逃げ上手の若君", artist: "DISH//" },
+    { year: 2024, title: "UNDEAD", anime: "〈物語〉シリーズ オフ&モンスターシーズン", artist: "YOASOBI" },
+    { year: 2024, title: "ホムンクルス", anime: "僕のヒーローアカデミア THE MOVIE ユアネクスト", artist: "Vaundy" },
+
+    // --- 2025年 ---
+    { year: 2025, title: "BOW AND ARROW", anime: "メダリスト", artist: "米津玄師" },
+    { year: 2025, title: "走れSAKAMOTO", anime: "SAKAMOTO DAYS", artist: "Vaundy" },
+    { year: 2025, title: "斬撃", anime: "炎炎ノ消防隊 参ノ章", artist: "Mrs. GREEN APPLE" },
+    { year: 2025, title: "ネバーランド", anime: "薬屋のひとりごと 第2期", artist: "Uru" },
+    { year: 2025, title: "サイレン", anime: "劇場版チェンソーマン レゼ篇", artist: "米津玄師" },
+    { year: 2025, title: "アポリア", anime: "チ。 —地球の運動について—", artist: "ヨルシカ" },
+{ year: 2015, title: "かくしん的☆めたまるふょ〜ぜっ!", anime: "干物妹！うまるちゃん", artist: "土間うまる（田中あいみ）" },
+    { year: 2016, title: "fantastic dreamer", anime: "この素晴らしい世界に祝福を！", artist: "Machico" },
+    { year: 2016, title: "HISTORY MAKER", anime: "ユーリ!!! on ICE", artist: "DEAN FUJIOKA" },
+    { year: 2017, title: "Caste Room", anime: "ようこそ実力至上主義の教室へ", artist: "ZAQ" },
+    { year: 2017, title: "JINGO JUNGLE", anime: "幼女戦記", artist: "MYTH & ROID" },
+    { year: 2017, title: "ハルカミライ", anime: "ブラッククローバー", artist: "感覚ピエロ" },
+    { year: 2019, title: "Good Morning World!", anime: "Dr.STONE", artist: "BURNOUT SYNDROMES" },
+    { year: 2019, title: "五等分の気持ち", anime: "五等分の花嫁", artist: "中野家の五つ子" },
+    { year: 2019, title: "Touch off", anime: "約束のネバーランド", artist: "UVERworld" },
+    { year: 2018, title: "Sincerely", anime: "ヴァイオレット・エヴァーガーデン", artist: "TRUE" },
+    { year: 2018, title: "君のせい", anime: "青春ブタ野郎はバニーガール先輩の夢を見ない", artist: "the peggies" },
+    { year: 2018, title: "The Girls Are Alright!", anime: "宇宙よりも遠い場所", artist: "saya" },
+    { year: 2018, title: "SHINY DAYS", anime: "ゆるキャン△", artist: "亜咲花" },
+    { year: 2014, title: "This game", anime: "ノーゲーム・ノーライフ", artist: "鈴木このみ" },
+    { year: 2003, title: "カサブタ", anime: "金色のガッシュベル!!", artist: "千綿ヒロシ" },
+    { year: 1997, title: "めざせポケモンマスター", anime: "ポケットモンスター", artist: "松本梨香" },
+    { year: 2002, title: "ADVANCED ADVENTURE", anime: "ポケットモンスター アドバンスジェネレーション", artist: "GARDEN" },
+    { year: 2011, title: "Kuusou Mesorogiwi", anime: "未来日記", artist: "妖精帝國" },
+    { year: 2012, title: "abnormalize", anime: "PSYCHO-PASS サイコパス", artist: "凛として時雨" },
+    { year: 2012, title: "Sparkling Daydream", anime: "中二病でも恋がしたい！", artist: "ZAQ" },
+    { year: 2012, title: "DreamRiser", anime: "ガールズ＆パンツァー", artist: "ChouCho" },
+    { year: 2013, title: "ZERO!!", anime: "はたらく魔王さま！", artist: "栗林みな実" },
+    { year: 2013, title: "なないろ日和", anime: "のんのんびより", artist: "nano.RIPE" },
+    { year: 2014, title: "イマジネーション", anime: "ハイキュー!!", artist: "SPYAIR" },
+    { year: 2014, title: "Rising Hope", anime: "魔法科高校の劣等生", artist: "LiSA" },
+    { year: 2014, title: "COLORFUL BOX", anime: "SHIROBAKO", artist: "石田燿子" },
+    { year: 2014, title: "熱情のスペクトラム", anime: "七つの大罪", artist: "いきものがかり" },
+    { year: 2015, title: "青春サツバツ論", anime: "暗殺教室", artist: "3年E組うた担" },
+    { year: 2015, title: "Clattanoia", anime: "オーバーロード", artist: "OxT" },
+    { year: 2015, title: "DREAM SOLISTER", anime: "響け！ユーフォニアム", artist: "TRUE" },
+    { year: 2015, title: "Hey World", anime: "ダンジョンに出会いを求めるのは間違っているだろうか", artist: "井口裕香" },
+    { year: 2007, title: "経験値上昇中☆", anime: "みなみけ", artist: "みなみけ3姉妹（佐藤利奈、井上麻里奈、茅原実里）" },
+    { year: 2007, title: "人として軸がぶれている", anime: "さよなら絶望先生", artist: "大槻ケンヂと絶望少女達" },
+    { year: 2008, title: "プレパレード", anime: "とらドラ！", artist: "逢坂大河（釘宮理恵）、櫛枝実乃梨（堀江由衣）、川嶋亜美（喜多村英梨）" },
+    { year: 2008, title: "resonance", anime: "ソウルイーター", artist: "T.M.Revolution" },
+    { year: 2008, title: "モノクロのキス", anime: "黒執事", artist: "シド" },
+    { year: 2009, title: "staple stable", anime: "化物語", artist: "戦場ヶ原ひたぎ（斎藤千和）" },
+    { year: 2009, title: "まるかいて地球", anime: "ヘタリア Axis Powers", artist: "イタリア（浪川大輔）" },
+    { year: 2000, title: "ハム太郎とっとこうた", anime: "とっとこハム太郎", artist: "ハムちゃんず" },
+    { year: 2001, title: "カービィ！", anime: "星のカービィ", artist: "朝川ひろこ" },
+    { year: 2017, title: "青空のラプソディ", anime: "小林さんちのメイドラゴン", artist: "fhána" },
+    { year: 2021, title: "旅人の唄", anime: "無職転生 ～異世界行ったら本気だす～", artist: "大原ゆい子" },
+    { year: 2011, title: "Hacking to the Gate", anime: "シュタインズゲート", artist: "いとうかなこ" },
+    { year: 2010, title: "irony", anime: "俺の妹がこんなに可愛いわけがない", artist: "ClariS" },
+    { year: 2011, title: "青い栞", anime: "あの日見た花の名前を僕達はまだ知らない。", artist: "Galileo Galilei" },
+    { year: 2011, title: "ヒャダインのじょーじょーゆーじょー", anime: "日常", artist: "ヒャダイン" },
+    { year: 2004, title: "月光花", anime: "ブラック・ジャック", artist: "Janne Da Arc" },
+    { year: 2004, title: "pastel pure", anime: "マリア様がみてる", artist: "ALI PROJECT" },
+    { year: 2005, title: "INNOCENCE", anime: "アイシールド21", artist: "V6" },
+    { year: 2005, title: "オトメロディー", anime: "おねがいマイメロディ", artist: "高橋美佳子" },
+    { year: 2005, title: "いちごコンプリート", anime: "苺ましまろ", artist: "千葉紗子・折笠富美子・川澄綾子・能登麻美子" },
+    { year: 2006, title: "the WORLD", anime: "DEATH NOTE", artist: "ナイトメア" },
+    { year: 2006, title: "Pray", anime: "銀魂", artist: "Tommy heavenly6" },
+    { year: 2006, title: "First Kiss", anime: "ゼロの使い魔", artist: "釘宮理恵" },
+    { year: 2007, title: "INNOCENT SORROW", anime: "D.Gray-man", artist: "abingdon boys school" },
+    { year: 2007, title: "ドラマチック", anime: "おおきく振りかぶって", artist: "Base Ball Bear" },
+  // ▲▲▲ ここに曲リストを挿入 ▲▲▲
+];
+
+const CLEAN_SONG_POOL = (() => {
+  const seen = new Set();
+  const list = [];
+  for (const item of SONG_POOL) {
+    if (!item || !item.year || !item.title || !item.artist) continue;
+    const animeName = item.anime ? String(item.anime) : "";
+    const key = `${item.artist}__${item.title}__${animeName}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    list.push({
+      y: Number(item.year),
+      t: String(item.title),
+      a: String(item.artist),
+      an: animeName
+    });
+  }
+  return list;
+})();
+
+// ============================================================================
+// 2. 音量管理・効果音（Web Audio API）＆ Apple Music / iTunes プレビュー再生
+// ============================================================================
+let audioCtx = null;
+let volumeLevel = 0.4; // 0.0 〜 1.0（初期値40%）
+let lastNonZeroVolume = 0.4;
+let isMuted = false;
+let previewAudio = null;
+let isPreviewPlaying = false;
+let isPreviewLoading = false;
+
+function getEffectiveVolume() {
+  return isMuted ? 0 : Math.max(0, Math.min(1, volumeLevel));
+}
+
+function applyVolumeToUIAndAudio() {
+  const eff = getEffectiveVolume();
+  if (previewAudio) {
+    previewAudio.volume = eff;
+  }
+  const slider = document.getElementById('volume-slider');
+  const label = document.getElementById('volume-label');
+  const volIcon = document.getElementById('vol-slider-icon');
+  const headerMuteIcon = document.getElementById('icon-mute');
+  const headerMuteLabel = document.getElementById('label-mute');
+  const pct = Math.round(eff * 100);
+
+  if (slider) slider.value = String(pct);
+  if (label) label.textContent = `${pct}%`;
+
+  if (volIcon) {
+    if (eff === 0) volIcon.className = 'fa-solid fa-volume-xmark text-rose-600 text-sm';
+    else if (eff < 0.4) volIcon.className = 'fa-solid fa-volume-low text-amber-600 text-sm';
+    else volIcon.className = 'fa-solid fa-volume-high text-fuchsia-600 text-sm';
+  }
+
+  if (headerMuteIcon && headerMuteLabel) {
+    if (eff === 0) {
+      headerMuteIcon.className = 'fa-solid fa-volume-xmark text-rose-600';
+      headerMuteLabel.textContent = 'ミュート中';
+    } else {
+      headerMuteIcon.className = 'fa-solid fa-volume-high text-emerald-600';
+      headerMuteLabel.textContent = '音声ON';
+    }
+  }
+}
+
+function setVolumeFromSlider(val) {
+  const num = Math.max(0, Math.min(100, Number(val) || 0));
+  volumeLevel = num / 100;
+  if (volumeLevel > 0) {
+    lastNonZeroVolume = volumeLevel;
+    isMuted = false;
+  } else {
+    isMuted = true;
+  }
+  applyVolumeToUIAndAudio();
+}
+
+function initAudioCtx() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function toggleMute() {
+  if (!isMuted && getEffectiveVolume() > 0) {
+    lastNonZeroVolume = volumeLevel;
+    isMuted = true;
+    stopPreviewAudio();
+  } else {
+    isMuted = false;
+    volumeLevel = lastNonZeroVolume > 0 ? lastNonZeroVolume : 0.4;
+  }
+  applyVolumeToUIAndAudio();
+  if (!isMuted) playSFX('tap');
+}
+
+function playSFX(kind) {
+  const eff = getEffectiveVolume();
+  if (eff <= 0) return;
+  try {
+    initAudioCtx();
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    const peak = 0.25 * eff;
+    if (kind === 'tap') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.exponentialRampToValueAtTime(840, now + 0.06);
+      gain.gain.setValueAtTime(peak, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+      osc.start(now); osc.stop(now + 0.07);
+    } else if (kind === 'ok') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.setValueAtTime(783.99, now + 0.09);
+      gain.gain.setValueAtTime(peak, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      osc.start(now); osc.stop(now + 0.25);
+    } else if (kind === 'ng') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(240, now);
+      osc.frequency.linearRampToValueAtTime(130, now + 0.28);
+      gain.gain.setValueAtTime(peak, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      osc.start(now); osc.stop(now + 0.3);
+    } else if (kind === 'win') {
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, idx) => {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'triangle';
+        o.connect(g); g.connect(audioCtx.destination);
+        const t0 = now + idx * 0.12;
+        o.frequency.setValueAtTime(f, t0);
+        g.gain.setValueAtTime(peak, t0);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.4);
+        o.start(t0); o.stop(t0 + 0.4);
+      });
+    }
+  } catch (e) {}
+}
+
+function stopPreviewAudio() {
+  if (previewAudio) {
+    previewAudio.pause();
+    previewAudio.currentTime = 0;
+  }
+  isPreviewPlaying = false;
+  isPreviewLoading = false;
+  updatePlayButtonUI();
+}
+
+function normalizeStr(s) {
+  return String(s || '')
+    .replace(/[！-～]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60))
+    .toLowerCase()
+    .replace(/[\s・〜~ー\-!'’".,?？!！()（）&＆/／『』「」×]/g, '');
+}
+
+const BANNED_VERSION_WORDS = [
+  'off vocal', 'offvocal', 'instrumental', 'karaoke', 'remix', 'remixed', 'mix', 'megamix',
+  'mashup', 'medley', 'live', 'cover', 'covered', 'tribute', 'version', 'ver.', 'ver ',
+  'tv size', 'tvサイズ', 'short ver', 'edit', 'dub', 'bootleg',
+  'オルゴール', 'music box', 'musicbox', 'acoustic', '8-bit', '8bit', 'piano', 'synth',
+  'sped up', 'slowed', 'カラオケ', 'インスト', 'リミックス', 'ミックス', 'メドレー',
+  'マッシュアップ', '弾き語り', 'カバー', '吹奏楽', '合唱', 'bgm', 'アレンジ', 'バージョン'
+];
+
+function hasBannedVersionToken(trackName, collectionName, originalArtist, originalTitle, resultArtist) {
+  const lowTrack = String(trackName || '').toLowerCase();
+  const lowCol = String(collectionName || '').toLowerCase();
+  const origT = String(originalTitle || '').toLowerCase();
+  const origA = String(originalArtist || '').toLowerCase();
+
+  for (const w of BANNED_VERSION_WORDS) {
+    if (lowTrack.includes(w) && !origT.includes(w)) return true;
+    if (lowCol.includes(w) && !origT.includes(w) && !origA.includes(w)) return true;
+  }
+
+  const rArtRaw = String(resultArtist || '').toLowerCase();
+  const collabSeparators = [' × ', ' x ', ' vs ', ' vs. ', ' with ', ' feat.', ' feat ', ' ft.', ' ft '];
+  for (const sep of collabSeparators) {
+    if (rArtRaw.includes(sep) && !origA.includes(sep.trim())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function queryItunesJsonp(searchTerm) {
+  return new Promise((resolve) => {
+    const callbackName = 'appleMusicCb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+    const query = encodeURIComponent(searchTerm);
+    const script = document.createElement('script');
+    let settled = false;
+
+    const cleanup = () => {
+      if (script.parentNode) script.parentNode.removeChild(script);
+      delete window[callbackName];
+    };
+
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        cleanup();
+        resolve([]);
+      }
+    }, 8000);
+
+    window[callbackName] = (data) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      cleanup();
+      resolve((data && Array.isArray(data.results)) ? data.results : []);
+    };
+
+    script.src = `https://itunes.apple.com/search?term=${query}&media=music&entity=song&country=JP&limit=35&callback=${callbackName}`;
+    script.onerror = () => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        cleanup();
+        resolve([]);
+      }
+    };
+    document.body.appendChild(script);
+  });
+}
+
+function pickBestPreviewFromResults(results, artist, title) {
+  const normTitle = normalizeStr(title);
+  const normArtist = normalizeStr(artist);
+  if (!normTitle || !normArtist) return null;
+
+  let bestUrl = null;
+  let bestScore = -999;
+
+  for (const item of results) {
+    if (!item.previewUrl) continue;
+    if (hasBannedVersionToken(item.trackName, item.collectionName, artist, title, item.artistName)) {
+      continue;
+    }
+
+    const rTitle = normalizeStr(item.trackName);
+    const rArtist = normalizeStr(item.artistName);
+
+    const artistExact = rArtist === normArtist;
+    const artistIncludes = normArtist.length >= 2 && (rArtist.includes(normArtist) || normArtist.includes(rArtist));
+    if (!artistExact && !artistIncludes) continue;
+
+    const titleExact = rTitle === normTitle;
+    const titleStartsWith = rTitle.startsWith(normTitle) && rTitle.length <= normTitle.length + 4;
+    const titleIncludes = normTitle.length >= 2 && rTitle.includes(normTitle);
+    if (!titleExact && !titleStartsWith && !titleIncludes) continue;
+
+    let score = 0;
+    if (artistExact) score += 20;
+    else if (artistIncludes) score += 8;
+
+    if (titleExact) score += 20;
+    else if (titleStartsWith) score += 10;
+    else if (titleIncludes) score += 2;
+
+    if (/[（(【\[]/.test(String(item.trackName || '')) && !/[（(【\[]/.test(String(title || ''))) {
+      score -= 8;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestUrl = item.previewUrl;
+    }
+  }
+
+  return bestUrl;
+}
+
+async function searchApplePreviewUrl(artist, title) {
+  const firstResults = await queryItunesJsonp(`${artist} ${title}`);
+  const firstMatch = pickBestPreviewFromResults(firstResults, artist, title);
+  if (firstMatch) return firstMatch;
+
+  const secondResults = await queryItunesJsonp(`${title} ${artist}`);
+  const secondMatch = pickBestPreviewFromResults(secondResults, artist, title);
+  if (secondMatch) return secondMatch;
+
+  return null;
+}
+
+async function toggleSongPreview() {
+  if (getEffectiveVolume() <= 0) {
+    showToast('音量が0%またはミュートです。再生ボタン横の音量スライダーを上げてください。', 'warn');
+    return;
+  }
+  if (isPreviewPlaying) {
+    stopPreviewAudio();
+    return;
+  }
+  if (isPreviewLoading) return;
+
+  isPreviewLoading = true;
+  updatePlayButtonUI();
+  requestPreviewUrlFromHost();
+}
+
+function playPreviewByUrl(url) {
+  isPreviewLoading = false;
+  if (!url) {
+    updatePlayButtonUI();
+    showToast('該当するオリジナル音源が見つかりませんでした。「別曲/オルゴール等スキップ」で次へ進めます。', 'warn');
+    return;
+  }
+
+  stopPreviewAudio();
+  previewAudio = new Audio(url);
+  previewAudio.volume = getEffectiveVolume();
+  previewAudio.onended = () => {
+    isPreviewPlaying = false;
+    updatePlayButtonUI();
+  };
+  previewAudio.onerror = () => {
+    isPreviewPlaying = false;
+    updatePlayButtonUI();
+    showToast('音声の再生に失敗しました。「別曲/オルゴール等スキップ」も使えます。', 'error');
+  };
+
+  previewAudio.play().then(() => {
+    isPreviewPlaying = true;
+    updatePlayButtonUI();
+  }).catch(() => {
+    isPreviewPlaying = false;
+    updatePlayButtonUI();
+    showToast('ブラウザの制限で再生できませんでした。もう一度押してください。', 'warn');
+  });
+}
+
+function updatePlayButtonUI() {
+  const disc = document.getElementById('disc-icon');
+  const label = document.getElementById('play-btn-label');
+  if (disc) {
+    if (isPreviewPlaying) disc.classList.add('spin-slow');
+    else disc.classList.remove('spin-slow');
+  }
+  if (label) {
+    if (isPreviewLoading) label.textContent = '音源を検索中...';
+    else if (isPreviewPlaying) label.textContent = '再生ストップ';
+    else label.textContent = '曲を再生する';
+  }
+}
+
+// ============================================================================
+// 3. PeerJS P2P 通信＆ホスト権威型ステート
+// ============================================================================
+const ROOM_PREFIX = 'hitster-anime-surv-v1-';
+let peer = null;
+let myId = null;
+let myName = '';
+let isHost = false;
+let roomCode = '';
+let hostConn = null;
+let clientConns = {};
+
+let masterState = null;
+let cachedPreviewUrl = null;
+let cachedPreviewChecked = false;
+let viewState = null;
+let selectedSlot = null;
+
+function showToast(msg, type = 'info') {
+  const box = document.getElementById('toast-box');
+  const el = document.createElement('div');
+  const map = {
+    info: 'bg-slate-900 text-white',
+    success: 'bg-emerald-600 text-white',
+    warn: 'bg-amber-600 text-white',
+    error: 'bg-rose-600 text-white'
+  };
+  el.className = `${map[type] || map.info} px-4 py-3 rounded-2xl shadow-xl font-bold text-sm text-center transition-all duration-300`;
+  el.textContent = msg;
+  box.appendChild(el);
+  setTimeout(() => {
+    el.classList.add('opacity-0');
+    setTimeout(() => el.remove(), 300);
+  }, 3000);
+}
+
+function copyRoomCode() {
+  if (!roomCode) return;
+  navigator.clipboard.writeText(roomCode).then(() => {
+    playSFX('tap');
+    showToast(`合言葉「${roomCode}」をコピーしました`, 'success');
+  });
+}
+
+function openRules() {
+  playSFX('tap');
+  const m = document.getElementById('rules-modal');
+  m.classList.remove('hidden'); m.classList.add('flex');
+}
+
+function closeRules() {
+  playSFX('tap');
+  const m = document.getElementById('rules-modal');
+  m.classList.add('hidden'); m.classList.remove('flex');
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function createRoom() {
+  const nick = document.getElementById('nick-input').value.trim();
+  const code = document.getElementById('code-input').value.trim();
+  if (!nick) { playSFX('ng'); showToast('ニックネームを入力してください', 'error'); return; }
+  if (code.length < 1) { playSFX('ng'); showToast('合言葉を1文字以上入力してください', 'error'); return; }
+
+  playSFX('tap');
+  myName = nick;
+  roomCode = code;
+  isHost = true;
+
+  peer = new Peer(ROOM_PREFIX + encodeURIComponent(roomCode));
+  peer.on('open', (id) => {
+    myId = id;
+    masterState = {
+      roomCode,
+      hostId: myId,
+      phase: 'LOBBY',
+      initialLife: 2,
+      players: [{ id: myId, name: myName, life: 2, skipsLeft: 1, alive: true }],
+      timeline: [],
+      deck: [],
+      turnIndex: 0,
+      currentCard: null,
+      previewNotFound: false,
+      lastResult: null,
+      winnerIds: []
+    };
+    broadcastState();
+    showToast(`合言葉「${roomCode}」で部屋を作成しました`, 'success');
+  });
+
+  peer.on('connection', (conn) => {
+    conn.on('open', () => { clientConns[conn.peer] = conn; });
+    conn.on('data', (msg) => handleAction(conn.peer, msg));
+    conn.on('close', () => {
+      delete clientConns[conn.peer];
+      if (masterState && masterState.phase === 'LOBBY') {
+        masterState.players = masterState.players.filter(p => p.id !== conn.peer);
+        broadcastState();
+      }
+    });
+  });
+
+  peer.on('error', (err) => {
+    playSFX('ng');
+    showToast(err.type === 'unavailable-id' ? 'その合言葉は既に使われています' : `接続エラー: ${err.type}`, 'error');
+  });
+}
+
+function joinRoom() {
+  const nick = document.getElementById('nick-input').value.trim();
+  const code = document.getElementById('code-input').value.trim();
+  if (!nick) { playSFX('ng'); showToast('ニックネームを入力してください', 'error'); return; }
+  if (code.length < 1) { playSFX('ng'); showToast('合言葉を1文字以上入力してください', 'error'); return; }
+
+  playSFX('tap');
+  myName = nick;
+  roomCode = code;
+  isHost = false;
+
+  peer = new Peer();
+  peer.on('open', (id) => {
+    myId = id;
+    hostConn = peer.connect(ROOM_PREFIX + encodeURIComponent(roomCode), { reliable: true });
+    hostConn.on('open', () => {
+      hostConn.send({ type: 'JOIN', name: myName });
+      showToast(`部屋「${roomCode}」に入室しました`, 'success');
+    });
+    hostConn.on('data', (msg) => {
+      if (msg.type === 'SYNC_STATE') {
+        const prevPhase = viewState ? viewState.phase : null;
+        viewState = msg.state;
+        onPhaseChange(prevPhase, viewState.phase);
+        renderAll();
+      } else if (msg.type === 'PREVIEW_URL') {
+        playPreviewByUrl(msg.url);
+      } else if (msg.type === 'ERR') {
+        playSFX('ng');
+        showToast(msg.text, 'error');
+      }
+    });
+  });
+
+  peer.on('error', (err) => {
+    playSFX('ng');
+    showToast(`入室できませんでした (${err.type})`, 'error');
+  });
+}
+
+function sendAction(payload) {
+  if (isHost) handleAction(myId, payload);
+  else if (hostConn && hostConn.open) hostConn.send(payload);
+}
+
+async function resolveCurrentPreviewOnHost() {
+  if (!masterState || !masterState.currentCard) return null;
+  if (!cachedPreviewChecked) {
+    cachedPreviewUrl = await searchApplePreviewUrl(masterState.currentCard.a, masterState.currentCard.t);
+    cachedPreviewChecked = true;
+    masterState.previewNotFound = !cachedPreviewUrl;
+    broadcastState();
+  }
+  return cachedPreviewUrl;
+}
+
+async function requestPreviewUrlFromHost() {
+  if (isHost) {
+    const url = await resolveCurrentPreviewOnHost();
+    playPreviewByUrl(url);
+  } else if (hostConn && hostConn.open) {
+    hostConn.send({ type: 'GET_PREVIEW_URL' });
+  }
+}
+
+function makeMaskedState() {
+  const revealed = (masterState.phase === 'REVEAL' || masterState.phase === 'GAME_OVER');
+  let maskedCard = null;
+  if (masterState.currentCard) {
+    maskedCard = revealed ? { ...masterState.currentCard } : { hidden: true };
+  }
+  return {
+    roomCode: masterState.roomCode,
+    hostId: masterState.hostId,
+    phase: masterState.phase,
+    initialLife: masterState.initialLife,
+    players: masterState.players.map(p => ({ ...p })),
+    timeline: [...masterState.timeline],
+    deckCount: masterState.deck.length,
+    turnIndex: masterState.turnIndex,
+    currentCard: maskedCard,
+    previewNotFound: Boolean(masterState.previewNotFound),
+    lastResult: masterState.lastResult ? { ...masterState.lastResult, card: { ...masterState.lastResult.card } } : null,
+    winnerIds: [...masterState.winnerIds]
+  };
+}
+
+function broadcastState() {
+  if (!isHost || !masterState) return;
+  const prevPhase = viewState ? viewState.phase : null;
+  viewState = makeMaskedState();
+  onPhaseChange(prevPhase, viewState.phase);
+  renderAll();
+
+  Object.values(clientConns).forEach(conn => {
+    if (conn.open) conn.send({ type: 'SYNC_STATE', state: makeMaskedState() });
+  });
+}
+
+function onPhaseChange(prevPhase, nextPhase) {
+  if (prevPhase !== nextPhase) {
+    stopPreviewAudio();
+    selectedSlot = null;
+    if (nextPhase === 'GAME_OVER') {
+      playSFX('win');
+      if (typeof confetti === 'function') confetti({ particleCount: 130, spread: 75, origin: { y: 0.6 } });
+    } else if (nextPhase === 'REVEAL' && viewState && viewState.lastResult) {
+      playSFX(viewState.lastResult.correct ? 'ok' : 'ng');
+    }
+  }
+}
+
+function findNextAliveTurnIndex(fromIdx) {
+  const n = masterState.players.length;
+  for (let offset = 1; offset <= n; offset++) {
+    const idx = (fromIdx + offset) % n;
+    if (masterState.players[idx].alive) return idx;
+  }
+  return 0;
+}
+
+function checkSurvivalVictory() {
+  const alivePlayers = masterState.players.filter(p => p.alive);
+  if (masterState.players.length >= 2 && alivePlayers.length === 1) {
+    masterState.winnerIds = [alivePlayers[0].id];
+    masterState.phase = 'GAME_OVER';
+    return true;
+  }
+  if (alivePlayers.length === 0) {
+    masterState.winnerIds = [];
+    masterState.phase = 'GAME_OVER';
+    return true;
+  }
+  if (masterState.deck.length === 0) {
+    const maxLife = Math.max(...alivePlayers.map(p => p.life));
+    masterState.winnerIds = alivePlayers.filter(p => p.life === maxLife).map(p => p.id);
+    masterState.phase = 'GAME_OVER';
+    return true;
+  }
+  return false;
+}
+
+async function handleAction(senderId, msg) {
+  if (!isHost || !masterState) return;
+
+  switch (msg.type) {
+    case 'JOIN': {
+      if (masterState.phase !== 'LOBBY') {
+        const c = clientConns[senderId];
+        if (c) c.send({ type: 'ERR', text: 'すでにゲームが始まっています' });
+        return;
+      }
+      if (masterState.players.length >= 8) return;
+      masterState.players.push({
+        id: senderId,
+        name: String(msg.name || 'プレイヤー').slice(0, 12),
+        life: masterState.initialLife,
+        skipsLeft: 1,
+        alive: true
+      });
+      broadcastState();
+      break;
+    }
+
+    case 'SET_LIFE': {
+      if (senderId !== masterState.hostId || masterState.phase !== 'LOBBY') return;
+      const val = Math.max(1, Math.min(10, Number(msg.life) || 2));
+      masterState.initialLife = val;
+      masterState.players.forEach(p => { p.life = val; });
+      broadcastState();
+      break;
+    }
+
+    case 'START': {
+      if (senderId !== masterState.hostId || masterState.phase !== 'LOBBY') return;
+      if (CLEAN_SONG_POOL.length < 2) {
+        playSFX('ng');
+        showToast('アニメ曲リストに最低2曲以上追加してから開始してください！', 'error');
+        return;
+      }
+      const deck = shuffle(CLEAN_SONG_POOL);
+      const firstCard = deck.pop();
+      masterState.deck = deck;
+      masterState.timeline = [firstCard];
+      masterState.players.forEach(p => {
+        p.life = masterState.initialLife;
+        p.skipsLeft = 1;
+        p.alive = true;
+      });
+      masterState.turnIndex = 0;
+      masterState.currentCard = deck.pop();
+      masterState.previewNotFound = false;
+      cachedPreviewUrl = null;
+      cachedPreviewChecked = false;
+      masterState.lastResult = null;
+      masterState.winnerIds = [];
+      masterState.phase = 'TURN';
+      broadcastState();
+      break;
+    }
+
+    case 'GET_PREVIEW_URL': {
+      if (!masterState.currentCard) return;
+      const url = await resolveCurrentPreviewOnHost();
+      const conn = clientConns[senderId];
+      if (conn && conn.open) {
+        conn.send({ type: 'PREVIEW_URL', url });
+      }
+      break;
+    }
+
+    case 'SKIP': {
+      if (masterState.phase !== 'TURN') return;
+      const active = masterState.players[masterState.turnIndex];
+      if (!active || active.id !== senderId) return;
+      if (active.skipsLeft <= 0 || masterState.deck.length === 0) return;
+
+      active.skipsLeft -= 1;
+      masterState.currentCard = masterState.deck.pop();
+      masterState.previewNotFound = false;
+      cachedPreviewUrl = null;
+      cachedPreviewChecked = false;
+      stopPreviewAudio();
+      broadcastState();
+      break;
+    }
+
+    case 'SKIP_NO_AUDIO': {
+      if (masterState.phase !== 'TURN') return;
+      const active = masterState.players[masterState.turnIndex];
+      if (!active || active.id !== senderId) return;
+      if (masterState.deck.length === 0) return;
+
+      masterState.currentCard = masterState.deck.pop();
+      masterState.previewNotFound = false;
+      cachedPreviewUrl = null;
+      cachedPreviewChecked = false;
+      stopPreviewAudio();
+      broadcastState();
+      break;
+    }
+
+    case 'PLACE': {
+      if (masterState.phase !== 'TURN') return;
+      const active = masterState.players[masterState.turnIndex];
+      if (!active || active.id !== senderId) return;
+
+      const slot = Number(msg.slot);
+      const tl = masterState.timeline;
+      if (isNaN(slot) || slot < 0 || slot > tl.length) return;
+
+      const card = masterState.currentCard;
+      const left = slot > 0 ? tl[slot - 1] : null;
+      const right = slot < tl.length ? tl[slot] : null;
+      const ok = (!left || left.y <= card.y) && (!right || card.y <= right.y);
+
+      if (ok) {
+        tl.splice(slot, 0, card);
+        masterState.lastResult = {
+          playerId: active.id,
+          playerName: active.name,
+          card,
+          correct: true,
+          insertedSlot: slot,
+          message: `${active.name} が正解！共通TLに追加されました。`
+        };
+      } else {
+        active.life = Math.max(0, active.life - 1);
+        if (active.life === 0) active.alive = false;
+        masterState.lastResult = {
+          playerId: active.id,
+          playerName: active.name,
+          card,
+          correct: false,
+          insertedSlot: null,
+          message: `${active.name} は不正解…ライフが1減りました（残り ${active.life}）${active.alive ? '' : '【脱落】'}。`
+        };
+      }
+
+      masterState.phase = 'REVEAL';
+      broadcastState();
+      break;
+    }
+
+    case 'REWIND_AND_SKIP': {
+      if (masterState.phase !== 'REVEAL' || !masterState.lastResult) return;
+      const active = masterState.players[masterState.turnIndex];
+      if (senderId !== masterState.hostId && (!active || active.id !== senderId)) return;
+
+      if (masterState.deck.length === 0) {
+        const c = clientConns[senderId];
+        if (c) c.send({ type: 'ERR', text: '山札が空のため引き直しできません' });
+        if (senderId === myId) showToast('山札が空のため引き直しできません', 'error');
+        return;
+      }
+
+      const res = masterState.lastResult;
+      const targetPlayer = masterState.players.find(p => p.id === res.playerId);
+
+      if (res.correct && res.insertedSlot !== null) {
+        masterState.timeline.splice(res.insertedSlot, 1);
+      } else if (!res.correct && targetPlayer) {
+        targetPlayer.life = Math.min(masterState.initialLife, targetPlayer.life + 1);
+        if (targetPlayer.life > 0) targetPlayer.alive = true;
+      }
+
+      masterState.currentCard = masterState.deck.pop();
+      masterState.previewNotFound = false;
+      cachedPreviewUrl = null;
+      cachedPreviewChecked = false;
+      masterState.lastResult = null;
+      masterState.phase = 'TURN';
+      broadcastState();
+      break;
+    }
+
+    case 'NEXT': {
+      if (masterState.phase !== 'REVEAL') return;
+      const active = masterState.players[masterState.turnIndex];
+      if (senderId !== masterState.hostId && (!active || active.id !== senderId)) return;
+
+      if (checkSurvivalVictory()) {
+        broadcastState();
+        return;
+      }
+
+      masterState.turnIndex = findNextAliveTurnIndex(masterState.turnIndex);
+      masterState.currentCard = masterState.deck.pop();
+      masterState.previewNotFound = false;
+      cachedPreviewUrl = null;
+      cachedPreviewChecked = false;
+      masterState.lastResult = null;
+      masterState.phase = 'TURN';
+      broadcastState();
+      break;
+    }
+
+    case 'BACK_LOBBY': {
+      if (senderId !== masterState.hostId) return;
+      masterState.phase = 'LOBBY';
+      masterState.currentCard = null;
+      masterState.previewNotFound = false;
+      cachedPreviewUrl = null;
+      cachedPreviewChecked = false;
+      masterState.lastResult = null;
+      masterState.winnerIds = [];
+      masterState.players.forEach(p => {
+        p.life = masterState.initialLife;
+        p.skipsLeft = 1;
+        p.alive = true;
+      });
+      broadcastState();
+      break;
+    }
+  }
+}
+
+// ============================================================================
+// 4. 画面描画（renderAll）
+// ============================================================================
+function renderAll() {
+  const root = document.getElementById('app-root');
+  const codeBtn = document.getElementById('btn-copy-code');
+  const codeLabel = document.getElementById('header-code');
+
+  if (!viewState) {
+    codeBtn.classList.add('hidden');
+    codeBtn.classList.remove('flex');
+    root.innerHTML = renderJoinScreen();
+    applyVolumeToUIAndAudio();
+    return;
+  }
+
+  codeBtn.classList.remove('hidden');
+  codeBtn.classList.add('flex');
+  codeLabel.textContent = viewState.roomCode;
+
+  if (viewState.phase === 'LOBBY') root.innerHTML = renderLobbyScreen();
+  else if (viewState.phase === 'GAME_OVER') root.innerHTML = renderGameOverScreen();
+  else root.innerHTML = renderGameScreen();
+
+  applyVolumeToUIAndAudio();
+}
+
+function renderJoinScreen() {
+  return `
+    <div class="max-w-md w-full mx-auto bg-white rounded-3xl p-6 sm:p-8 shadow-lg border-2 border-slate-200 space-y-5">
+      <div class="text-center">
+        <div class="w-16 h-16 mx-auto rounded-full bg-fuchsia-600 text-white flex items-center justify-center text-3xl shadow mb-3">
+          <i class="fa-solid fa-tv"></i>
+        </div>
+        <h2 class="font-display text-2xl font-black text-slate-900">HITSTER ANIME SURVIVAL</h2>
+        <p class="text-xs font-bold text-slate-500 mt-1">登録アニメ曲数 ${CLEAN_SONG_POOL.length} 曲・全員共通TLサバイバル</p>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-black text-slate-700 mb-1">ニックネーム</label>
+          <input id="nick-input" type="text" maxlength="12" placeholder="例：ハナコ"
+            class="w-full px-4 py-3 rounded-2xl border-2 border-slate-300 focus:border-fuchsia-600 focus:outline-none font-bold bg-slate-50" />
+        </div>
+        <div>
+          <label class="block text-xs font-black text-slate-700 mb-1">合言葉（1文字以上でOK）</label>
+          <input id="code-input" type="text" maxlength="20" placeholder="例：1 や a"
+            class="w-full px-4 py-3 rounded-2xl border-2 border-slate-300 focus:border-fuchsia-600 focus:outline-none font-bold bg-slate-50" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 pt-1">
+        <button onclick="createRoom()" class="py-3.5 px-3 rounded-2xl bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black text-sm shadow transition active:scale-95">
+          部屋を作る
+        </button>
+        <button onclick="joinRoom()" class="py-3.5 px-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm shadow transition active:scale-95">
+          部屋に入る
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderLobbyScreen() {
+  return `
+    <div class="max-w-3xl w-full mx-auto bg-white rounded-3xl p-6 sm:p-8 shadow-lg border-2 border-slate-200 space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-200">
+        <div>
+          <span class="px-3 py-1 rounded-full bg-fuchsia-100 text-fuchsia-800 text-xs font-black">ロビー</span>
+          <h2 class="text-2xl font-black text-slate-900 mt-1">参加者（${viewState.players.length}人）</h2>
+        </div>
+
+        <div class="flex items-center gap-2 bg-rose-50 border border-rose-200 px-4 py-2 rounded-2xl">
+          <i class="fa-solid fa-heart text-rose-500"></i>
+          <span class="text-sm font-black text-slate-800">初期ライフ:</span>
+          ${isHost ? `
+            <select onchange="playSFX('tap'); sendAction({ type: 'SET_LIFE', life: Number(this.value) })"
+              class="px-2.5 py-1 rounded-xl border border-rose-300 bg-white font-black text-rose-700">
+              ${[1,2,3,4,5,6,7,8,9,10].map(n => `<option value="${n}" ${viewState.initialLife === n ? 'selected' : ''}>${n}</option>`).join('')}
+            </select>
+          ` : `
+            <span class="font-black text-rose-700 text-base">${viewState.initialLife}</span>
+          `}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        ${viewState.players.map(p => `
+          <div class="p-4 rounded-2xl border-2 border-slate-200 bg-slate-50 flex items-center justify-between">
+            <div class="font-black text-slate-900 flex items-center gap-2">
+              <span>${esc(p.name)}</span>
+              ${p.id === viewState.hostId ? '<span class="px-2 py-0.5 text-[10px] rounded bg-fuchsia-600 text-white">HOST</span>' : ''}
+              ${p.id === myId ? '<span class="px-2 py-0.5 text-[10px] rounded bg-slate-200 text-slate-800">自分</span>' : ''}
+            </div>
+            <div class="text-sm font-black text-rose-600">
+              <i class="fa-solid fa-heart mr-1"></i>${p.life}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      ${isHost ? `
+        <button onclick="playSFX('tap'); sendAction({ type: 'START' })"
+          class="w-full py-4 rounded-2xl bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black text-lg shadow-lg transition active:scale-95">
+          ゲーム開始（登録 ${CLEAN_SONG_POOL.length} 曲）
+        </button>
+      ` : `
+        <p class="text-center text-sm font-bold text-slate-500">ホストがゲームを開始するのを待っています...</p>
+      `}
+    </div>
+  `;
+}
+
+function renderGameScreen() {
+  const active = viewState.players[viewState.turnIndex];
+  const isMyTurn = active && active.id === myId;
+  const me = viewState.players.find(p => p.id === myId);
+  const canPlaceNow = viewState.phase === 'TURN' && isMyTurn;
+
+  return `
+    <div class="space-y-5">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        ${viewState.players.map((p, idx) => {
+          const isTurn = idx === viewState.turnIndex && viewState.phase !== 'REVEAL';
+          return `
+            <div class="p-3 rounded-2xl border-2 ${!p.alive ? 'bg-slate-100 border-slate-200 opacity-50' : (isTurn ? 'bg-fuchsia-50 border-fuchsia-500 shadow' : 'bg-white border-slate-200')}">
+              <div class="flex items-center justify-between">
+                <span class="font-black text-sm text-slate-900 truncate">${esc(p.name)}</span>
+                ${isTurn ? '<span class="px-2 py-0.5 text-[10px] rounded-full bg-fuchsia-600 text-white font-black">手番</span>' : ''}
+                ${!p.alive ? '<span class="px-2 py-0.5 text-[10px] rounded-full bg-slate-500 text-white font-black">脱落</span>' : ''}
+              </div>
+              <div class="mt-1.5 flex items-center justify-between text-xs font-black">
+                <span class="text-rose-600"><i class="fa-solid fa-heart mr-1"></i>ライフ ${p.life}</span>
+                <span class="text-slate-600">スキップ残: ${p.skipsLeft}</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-lg border-2 border-slate-200">
+        ${renderCenterArea(active, isMyTurn, me)}
+      </div>
+
+      <div class="bg-white rounded-3xl p-5 shadow-lg border-2 border-slate-200">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-black text-base sm:text-lg text-slate-900">
+            <i class="fa-solid fa-timeline text-fuchsia-600 mr-1.5"></i> 全員共通タイムライン（${viewState.timeline.length}枚）
+          </h3>
+          <span class="text-xs font-bold text-slate-500">山札残り: ${viewState.deckCount}枚</span>
+        </div>
+
+        <div class="flex items-center gap-2 overflow-x-auto pb-2 tl-scroll">
+          <span class="text-xs font-black text-slate-400 flex-shrink-0">古い ←</span>
+          ${renderTimelineItems(canPlaceNow)}
+          <span class="text-xs font-black text-slate-400 flex-shrink-0">→ 新しい</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCenterArea(active, isMyTurn, me) {
+  if (viewState.phase === 'REVEAL' && viewState.lastResult) {
+    const r = viewState.lastResult;
+    return `
+      <div class="text-center space-y-4">
+        <div class="inline-block px-4 py-1 rounded-full text-sm font-black ${r.correct ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+          ${r.correct ? '正解！' : '不正解！'}
+        </div>
+        <div class="max-w-md mx-auto bg-slate-900 text-white rounded-3xl p-6 shadow-lg space-y-1.5">
+          <div class="font-display text-5xl font-black text-amber-400">${r.card.y}</div>
+          <div class="text-xl font-black pt-1">${esc(r.card.t)}</div>
+          <div class="text-sm font-bold text-slate-300">${esc(r.card.a)}</div>
+          ${r.card.an ? `<div class="inline-block mt-1 px-3 py-0.5 rounded-full bg-fuchsia-600/30 border border-fuchsia-400/50 text-fuchsia-200 text-xs font-black">アニメ: ${esc(r.card.an)}</div>` : ''}
+        </div>
+        <p class="text-base font-black text-slate-800">${esc(r.message)}</p>
+        ${(isHost || isMyTurn) ? `
+          <div class="flex flex-wrap items-center justify-center gap-3 pt-1">
+            <button onclick="playSFX('tap'); sendAction({ type: 'NEXT' })"
+              class="px-7 py-3.5 rounded-2xl bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black text-base shadow transition active:scale-95">
+              次へ進む
+            </button>
+
+            <button ${viewState.deckCount <= 0 ? 'disabled' : ''}
+              onclick="playSFX('tap'); sendAction({ type: 'REWIND_AND_SKIP' })"
+              class="px-5 py-3.5 rounded-2xl bg-amber-100 hover:bg-amber-200 disabled:opacity-40 text-amber-950 font-black text-sm border-2 border-amber-300 shadow-sm transition active:scale-95">
+              <i class="fa-solid fa-rotate-left mr-1"></i> 検索ミスやり直し（ライフ戻してスキップ）
+            </button>
+          </div>
+        ` : `<p class="text-xs font-bold text-slate-500">ホストまたは手番プレイヤーの操作を待っています...</p>`}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="flex flex-col sm:flex-row items-center gap-6">
+      <div class="flex flex-col items-center flex-shrink-0">
+        <div id="disc-icon" class="w-28 h-28 rounded-full bg-slate-900 border-4 border-fuchsia-500 text-white flex items-center justify-center text-3xl shadow-lg ${isPreviewPlaying ? 'spin-slow' : ''}">
+          <i class="fa-solid fa-compact-disc"></i>
+        </div>
+
+        <div class="mt-3 flex flex-wrap items-center justify-center gap-2">
+          <button onclick="toggleSongPreview()"
+            class="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm shadow transition active:scale-95">
+            <i class="fa-solid fa-play mr-1"></i><span id="play-btn-label">曲を再生する</span>
+          </button>
+
+          <div class="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-100 border-2 border-slate-200">
+            <i id="vol-slider-icon" class="fa-solid fa-volume-high text-fuchsia-600 text-sm"></i>
+            <input id="volume-slider" type="range" min="0" max="100" value="${Math.round(getEffectiveVolume() * 100)}"
+              oninput="setVolumeFromSlider(this.value)"
+              class="w-20 sm:w-24 accent-fuchsia-600 cursor-pointer" aria-label="再生音量スライダー" />
+            <span id="volume-label" class="text-xs font-black text-slate-700 w-9 text-right">${Math.round(getEffectiveVolume() * 100)}%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex-1 w-full text-center sm:text-left space-y-3">
+        <div class="text-sm font-black text-fuchsia-600">
+          現在の手番: ${esc(active ? active.name : '')}
+        </div>
+
+        ${viewState.previewNotFound ? `
+          <div class="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-black">
+            <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+            該当するオリジナル音源が見つかりませんでした。スキップ権を消費せずに次へ進めます。
+          </div>
+        ` : ''}
+
+        ${isMyTurn ? `
+          <p class="text-base font-black text-slate-900">
+            曲を聴いて、下の共通TLのどこに入るか選んでください。
+          </p>
+          <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 pt-1">
+            <button ${selectedSlot === null ? 'disabled' : ''} onclick="confirmSlot()"
+              class="px-5 py-3 rounded-2xl bg-fuchsia-600 hover:bg-fuchsia-700 disabled:opacity-40 text-white font-black shadow transition active:scale-95">
+              ${selectedSlot === null ? '位置を選んでください' : `左から ${selectedSlot + 1} 番目に置く`}
+            </button>
+
+            <button ${(me && me.skipsLeft > 0 && viewState.deckCount > 0) ? '' : 'disabled'}
+              onclick="playSFX('tap'); sendAction({ type: 'SKIP' })"
+              class="px-4 py-3 rounded-2xl bg-amber-100 hover:bg-amber-200 disabled:opacity-40 text-amber-950 font-black text-sm border border-amber-300 transition active:scale-95">
+              通常スキップ（残 ${me ? me.skipsLeft : 0} 回）
+            </button>
+
+            <button ${viewState.deckCount <= 0 ? 'disabled' : ''}
+              onclick="playSFX('tap'); sendAction({ type: 'SKIP_NO_AUDIO' })"
+              class="px-4 py-3 rounded-2xl ${viewState.previewNotFound ? 'bg-rose-600 hover:bg-rose-700 text-white shadow' : 'bg-slate-200 hover:bg-slate-300 text-slate-800 border border-slate-300'} disabled:opacity-40 font-black text-sm transition active:scale-95">
+              <i class="fa-solid fa-forward-step mr-1"></i> 別曲/オルゴール等スキップ（回数消費なし）
+            </button>
+          </div>
+        ` : `
+          <p class="text-sm font-bold text-slate-600">
+            ${esc(active ? active.name : '')} が配置位置を選んでいます。各自「曲を再生する」を押して聴けます。
+          </p>
+        `}
+      </div>
+    </div>
+  `;
+}
+
+function renderTimelineItems(canSelect) {
+  const tl = viewState.timeline;
+  let html = '';
+  for (let i = 0; i <= tl.length; i++) {
+    if (canSelect) {
+      const picked = selectedSlot === i;
+      html += `
+        <button onclick="playSFX('tap'); selectedSlot = ${i}; renderAll();"
+          class="flex-shrink-0 w-16 h-32 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center font-black text-xs transition
+          ${picked ? 'bg-fuchsia-600 border-fuchsia-600 text-white scale-105 shadow' : 'bg-fuchsia-50 border-fuchsia-400 text-fuchsia-700 hover:bg-fuchsia-100'}">
+          <i class="fa-solid ${picked ? 'fa-check' : 'fa-plus'} text-base mb-1"></i>
+          <span>${picked ? 'ここ' : '置く'}</span>
+        </button>
+      `;
+    }
+    if (i < tl.length) {
+      const c = tl[i];
+      html += `
+        <div class="flex-shrink-0 w-36 h-32 rounded-2xl bg-slate-900 text-white p-3 flex flex-col justify-between shadow">
+          <div class="font-display text-2xl font-black text-amber-400 text-center">${c.y}</div>
+          <div class="text-center space-y-0.5">
+            <div class="text-xs font-black truncate">${esc(c.t)}</div>
+            <div class="text-[11px] font-bold text-slate-300 truncate">${esc(c.a)}</div>
+            ${c.an ? `<div class="text-[10px] font-bold text-fuchsia-300 truncate">${esc(c.an)}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }
+  }
+  return html;
+}
+
+function renderGameOverScreen() {
+  const winners = viewState.players.filter(p => viewState.winnerIds.includes(p.id));
+  return `
+    <div class="max-w-2xl w-full mx-auto bg-white rounded-3xl p-6 sm:p-8 shadow-lg border-2 border-amber-300 text-center space-y-5">
+      <div class="text-4xl text-amber-500"><i class="fa-solid fa-trophy"></i></div>
+      <h2 class="text-2xl sm:text-3xl font-black text-slate-900">
+        ${winners.length > 0 ? `勝利: ${winners.map(w => esc(w.name)).join(' / ')}` : '勝者なし'}
+      </h2>
+      <div class="text-left bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1.5">
+        <div class="text-xs font-black text-slate-600">最終順位・残ライフ</div>
+        ${viewState.players.slice().sort((a, b) => b.life - a.life).map(p => `
+          <div class="flex items-center justify-between text-sm font-black py-1 border-b border-slate-200 last:border-none">
+            <span>${esc(p.name)}</span>
+            <span class="${p.alive ? 'text-emerald-600' : 'text-slate-400'}">${p.alive ? `生存（ライフ ${p.life}）` : '脱落'}</span>
+          </div>
+        `).join('')}
+      </div>
+      ${isHost ? `
+        <button onclick="playSFX('tap'); sendAction({ type: 'BACK_LOBBY' })"
+          class="px-7 py-3.5 rounded-2xl bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black text-base shadow transition active:scale-95">
+          ロビーへ戻る
+        </button>
+      ` : `<p class="text-xs font-bold text-slate-500">ホストがロビーへ戻るのを待っています...</p>`}
+    </div>
+  `;
+}
+
+function confirmSlot() {
+  if (selectedSlot === null) return;
+  playSFX('tap');
+  sendAction({ type: 'PLACE', slot: selectedSlot });
+}
+
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+applyVolumeToUIAndAudio();
+renderAll();
+</script>
+</body>
+</html>
