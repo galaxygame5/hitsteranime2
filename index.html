@@ -74,7 +74,7 @@
   </header>
 
   <!-- TOAST -->
-  <div id="toast-box" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col gap-2 w-11/12 max-w-md"></div>
+  <div id="toast-box" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col gap-2 w-11/12 max-w-lg"></div>
 
   <!-- MAIN -->
   <main id="app-root" class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center"></main>
@@ -89,12 +89,12 @@
         </button>
       </div>
       <div class="p-6 overflow-y-auto space-y-3 text-sm sm:text-base font-bold text-slate-700 leading-relaxed">
-        <p>1. 全員で<strong>1つの共通タイムライン（TL）</strong>にカードを並べていきます。</p>
+        <p>1. 全員で<strong>1つの共通タイムライン（TL）</strong>にカードを並べていきます。スタート順はランダムです。</p>
         <p>2. 各プレイヤーは<strong>初期ライフ</strong>（デフォルト2、ホストが1〜10で変更可）を持ちます。</p>
         <p>3. 順番に1枚引き、再生ボタンで試聴して、発売年が左から右へ古→新になる位置に置きます。</p>
-        <p>4. 年代順が合っていればカードがTLに追加されます。<strong>間違えるとライフが1減ります</strong>。</p>
-        <p>5. <strong>通常スキップは1人1回だけ</strong>使えます（現在の曲を捨てて次の曲を引きます）。</p>
-        <p>6. <strong>オルゴール・別バージョン・違う曲が流れた場合</strong>や<strong>音源が見つからなかった場合</strong>は、回数制限なしのスキップ（回数消費なし）で通常のスキップ権を温存できます。</p>
+        <p>4. すでに<strong>同じ年代のカードがTLにある場合</strong>、新しく引いたカードと入れ替わってコンパクトに保たれます。<strong>間違えるとライフが1減ります</strong>。</p>
+        <p>5. <strong>通常スキップは1人1回だけ</strong>使えます。使うと正体が表示され、<strong>手番が次の人へ移ります</strong>。</p>
+        <p>6. <strong>オルゴール・別バージョン・違う曲が流れた場合</strong>や<strong>音源が見つからなかった場合</strong>は、回数制限なしのスキップ（正体表示＋手番継続）で新しい曲を引き直せます。</p>
         <p>7. 結果発表後に検索ミスに気づいた場合は、<strong>「検索ミスやり直し（ライフ戻してスキップ）」</strong>でやり直せます。</p>
         <p>8. ライフが0になると脱落し、<strong>最後まで生き残ったプレイヤーの勝利</strong>です。</p>
       </div>
@@ -786,11 +786,17 @@ const CLEAN_SONG_POOL = (() => {
   return list;
 })();
 
+function formatCardInfo(card) {
+  if (!card) return '';
+  const animePart = card.an ? `［${card.an}］` : '';
+  return `「${card.t}」/ ${card.a}${animePart}（${card.y}年）`;
+}
+
 // ============================================================================
 // 2. 音量管理・効果音（Web Audio API）＆ Apple Music / iTunes プレビュー再生
 // ============================================================================
 let audioCtx = null;
-let volumeLevel = 0.4; // 0.0 〜 1.0（初期値40%）
+let volumeLevel = 0.4;
 let lastNonZeroVolume = 0.4;
 let isMuted = false;
 let previewAudio = null;
@@ -1127,7 +1133,7 @@ function updatePlayButtonUI() {
 // ============================================================================
 // 3. PeerJS P2P 通信＆ホスト権威型ステート
 // ============================================================================
-const ROOM_PREFIX = 'hitster-anime-surv-v1-';
+const ROOM_PREFIX = 'hitster-anime-surv-v2-';
 let peer = null;
 let myId = null;
 let myName = '';
@@ -1141,8 +1147,9 @@ let cachedPreviewUrl = null;
 let cachedPreviewChecked = false;
 let viewState = null;
 let selectedSlot = null;
+let lastNotifiedSeq = 0;
 
-function showToast(msg, type = 'info') {
+function showToast(msg, type = 'info', durationMs = 4500) {
   const box = document.getElementById('toast-box');
   const el = document.createElement('div');
   const map = {
@@ -1157,14 +1164,14 @@ function showToast(msg, type = 'info') {
   setTimeout(() => {
     el.classList.add('opacity-0');
     setTimeout(() => el.remove(), 300);
-  }, 3000);
+  }, durationMs);
 }
 
 function copyRoomCode() {
   if (!roomCode) return;
   navigator.clipboard.writeText(roomCode).then(() => {
     playSFX('tap');
-    showToast(`合言葉「${roomCode}」をコピーしました`, 'success');
+    showToast(`合言葉「${roomCode}」をコピーしました`, 'success', 2500);
   });
 }
 
@@ -1215,10 +1222,11 @@ function createRoom() {
       currentCard: null,
       previewNotFound: false,
       lastResult: null,
+      lastSkipNotice: null,
       winnerIds: []
     };
     broadcastState();
-    showToast(`合言葉「${roomCode}」で部屋を作成しました`, 'success');
+    showToast(`合言葉「${roomCode}」で部屋を作成しました`, 'success', 2500);
   });
 
   peer.on('connection', (conn) => {
@@ -1256,13 +1264,13 @@ function joinRoom() {
     hostConn = peer.connect(ROOM_PREFIX + encodeURIComponent(roomCode), { reliable: true });
     hostConn.on('open', () => {
       hostConn.send({ type: 'JOIN', name: myName });
-      showToast(`部屋「${roomCode}」に入室しました`, 'success');
+      showToast(`部屋「${roomCode}」に入室しました`, 'success', 2500);
     });
     hostConn.on('data', (msg) => {
       if (msg.type === 'SYNC_STATE') {
         const prevPhase = viewState ? viewState.phase : null;
         viewState = msg.state;
-        onPhaseChange(prevPhase, viewState.phase);
+        onStateSynced(prevPhase, viewState);
         renderAll();
       } else if (msg.type === 'PREVIEW_URL') {
         playPreviewByUrl(msg.url);
@@ -1321,7 +1329,12 @@ function makeMaskedState() {
     turnIndex: masterState.turnIndex,
     currentCard: maskedCard,
     previewNotFound: Boolean(masterState.previewNotFound),
-    lastResult: masterState.lastResult ? { ...masterState.lastResult, card: { ...masterState.lastResult.card } } : null,
+    lastResult: masterState.lastResult ? {
+      ...masterState.lastResult,
+      card: { ...masterState.lastResult.card },
+      replacedCard: masterState.lastResult.replacedCard ? { ...masterState.lastResult.replacedCard } : null
+    } : null,
+    lastSkipNotice: masterState.lastSkipNotice ? { ...masterState.lastSkipNotice } : null,
     winnerIds: [...masterState.winnerIds]
   };
 }
@@ -1330,7 +1343,7 @@ function broadcastState() {
   if (!isHost || !masterState) return;
   const prevPhase = viewState ? viewState.phase : null;
   viewState = makeMaskedState();
-  onPhaseChange(prevPhase, viewState.phase);
+  onStateSynced(prevPhase, viewState);
   renderAll();
 
   Object.values(clientConns).forEach(conn => {
@@ -1338,16 +1351,23 @@ function broadcastState() {
   });
 }
 
-function onPhaseChange(prevPhase, nextPhase) {
-  if (prevPhase !== nextPhase) {
+function onStateSynced(prevPhase, nextState) {
+  if (prevPhase !== nextState.phase) {
     stopPreviewAudio();
     selectedSlot = null;
-    if (nextPhase === 'GAME_OVER') {
+    if (nextState.phase === 'GAME_OVER') {
       playSFX('win');
       if (typeof confetti === 'function') confetti({ particleCount: 130, spread: 75, origin: { y: 0.6 } });
-    } else if (nextPhase === 'REVEAL' && viewState && viewState.lastResult) {
-      playSFX(viewState.lastResult.correct ? 'ok' : 'ng');
+    } else if (nextState.phase === 'REVEAL' && nextState.lastResult) {
+      playSFX(nextState.lastResult.correct ? 'ok' : 'ng');
     }
+  }
+
+  if (nextState.lastSkipNotice && nextState.lastSkipNotice.seq > lastNotifiedSeq) {
+    lastNotifiedSeq = nextState.lastSkipNotice.seq;
+    stopPreviewAudio();
+    selectedSlot = null;
+    showToast(nextState.lastSkipNotice.text, nextState.lastSkipNotice.kind === 'normal' ? 'info' : 'warn', 6500);
   }
 }
 
@@ -1380,6 +1400,8 @@ function checkSurvivalVictory() {
   }
   return false;
 }
+
+let noticeCounter = 0;
 
 async function handleAction(senderId, msg) {
   if (!isHost || !masterState) return;
@@ -1419,21 +1441,25 @@ async function handleAction(senderId, msg) {
         showToast('アニメ曲リストに最低2曲以上追加してから開始してください！', 'error');
         return;
       }
-      const deck = shuffle(CLEAN_SONG_POOL);
-      const firstCard = deck.pop();
-      masterState.deck = deck;
-      masterState.timeline = [firstCard];
+      // スタート順をランダムにシャッフル
+      masterState.players = shuffle(masterState.players);
       masterState.players.forEach(p => {
         p.life = masterState.initialLife;
         p.skipsLeft = 1;
         p.alive = true;
       });
+
+      const deck = shuffle(CLEAN_SONG_POOL);
+      const firstCard = deck.pop();
+      masterState.deck = deck;
+      masterState.timeline = [firstCard];
       masterState.turnIndex = 0;
       masterState.currentCard = deck.pop();
       masterState.previewNotFound = false;
       cachedPreviewUrl = null;
       cachedPreviewChecked = false;
       masterState.lastResult = null;
+      masterState.lastSkipNotice = null;
       masterState.winnerIds = [];
       masterState.phase = 'TURN';
       broadcastState();
@@ -1450,13 +1476,24 @@ async function handleAction(senderId, msg) {
       break;
     }
 
+    // 通常スキップ：スキップ権を1消費＋曲名通知＋次のプレイヤーへ手番を飛ばす
     case 'SKIP': {
       if (masterState.phase !== 'TURN') return;
       const active = masterState.players[masterState.turnIndex];
       if (!active || active.id !== senderId) return;
       if (active.skipsLeft <= 0 || masterState.deck.length === 0) return;
 
+      const skippedCard = masterState.currentCard;
       active.skipsLeft -= 1;
+
+      noticeCounter += 1;
+      masterState.lastSkipNotice = {
+        seq: noticeCounter,
+        kind: 'normal',
+        text: `${active.name} がスキップ！スキップされた曲：${formatCardInfo(skippedCard)}`
+      };
+
+      masterState.turnIndex = findNextAliveTurnIndex(masterState.turnIndex);
       masterState.currentCard = masterState.deck.pop();
       masterState.previewNotFound = false;
       cachedPreviewUrl = null;
@@ -1466,11 +1503,24 @@ async function handleAction(senderId, msg) {
       break;
     }
 
+    // 音源なし / 別曲・オルゴール等スキップ：曲名通知＋同じ人の手番のまま新しい曲を引く
     case 'SKIP_NO_AUDIO': {
       if (masterState.phase !== 'TURN') return;
       const active = masterState.players[masterState.turnIndex];
       if (!active || active.id !== senderId) return;
       if (masterState.deck.length === 0) return;
+
+      const skippedCard = masterState.currentCard;
+      const reasonPrefix = masterState.previewNotFound
+        ? '音源が見つからずスキップされた曲：'
+        : '別曲/オルゴール等でスキップされた曲：';
+
+      noticeCounter += 1;
+      masterState.lastSkipNotice = {
+        seq: noticeCounter,
+        kind: 'no_audio',
+        text: `${reasonPrefix}${formatCardInfo(skippedCard)}`
+      };
 
       masterState.currentCard = masterState.deck.pop();
       masterState.previewNotFound = false;
@@ -1496,15 +1546,32 @@ async function handleAction(senderId, msg) {
       const ok = (!left || left.y <= card.y) && (!right || card.y <= right.y);
 
       if (ok) {
-        tl.splice(slot, 0, card);
-        masterState.lastResult = {
-          playerId: active.id,
-          playerName: active.name,
-          card,
-          correct: true,
-          insertedSlot: slot,
-          message: `${active.name} が正解！共通TLに追加されました。`
-        };
+        // 同じ年代がすでにTLにある場合は、前から置いてあったカードと交換（置換）する
+        const existingSameYearIdx = tl.findIndex(c => c.y === card.y);
+        if (existingSameYearIdx !== -1) {
+          const oldCard = tl[existingSameYearIdx];
+          tl[existingSameYearIdx] = card;
+          masterState.lastResult = {
+            playerId: active.id,
+            playerName: active.name,
+            card,
+            correct: true,
+            insertedSlot: existingSameYearIdx,
+            replacedCard: oldCard,
+            message: `${active.name} が正解！同じ ${card.y} 年の「${oldCard.t}」と入れ替わりました。`
+          };
+        } else {
+          tl.splice(slot, 0, card);
+          masterState.lastResult = {
+            playerId: active.id,
+            playerName: active.name,
+            card,
+            correct: true,
+            insertedSlot: slot,
+            replacedCard: null,
+            message: `${active.name} が正解！共通TLに追加されました。`
+          };
+        }
       } else {
         active.life = Math.max(0, active.life - 1);
         if (active.life === 0) active.alive = false;
@@ -1514,6 +1581,7 @@ async function handleAction(senderId, msg) {
           card,
           correct: false,
           insertedSlot: null,
+          replacedCard: null,
           message: `${active.name} は不正解…ライフが1減りました（残り ${active.life}）${active.alive ? '' : '【脱落】'}。`
         };
       }
@@ -1539,7 +1607,12 @@ async function handleAction(senderId, msg) {
       const targetPlayer = masterState.players.find(p => p.id === res.playerId);
 
       if (res.correct && res.insertedSlot !== null) {
-        masterState.timeline.splice(res.insertedSlot, 1);
+        if (res.replacedCard) {
+          // 置換していた場合は元の同年代カードに戻す
+          masterState.timeline[res.insertedSlot] = res.replacedCard;
+        } else {
+          masterState.timeline.splice(res.insertedSlot, 1);
+        }
       } else if (!res.correct && targetPlayer) {
         targetPlayer.life = Math.min(masterState.initialLife, targetPlayer.life + 1);
         if (targetPlayer.life > 0) targetPlayer.alive = true;
@@ -1584,6 +1657,7 @@ async function handleAction(senderId, msg) {
       cachedPreviewUrl = null;
       cachedPreviewChecked = false;
       masterState.lastResult = null;
+      masterState.lastSkipNotice = null;
       masterState.winnerIds = [];
       masterState.players.forEach(p => {
         p.life = masterState.initialLife;
@@ -1700,7 +1774,7 @@ function renderLobbyScreen() {
       ${isHost ? `
         <button onclick="playSFX('tap'); sendAction({ type: 'START' })"
           class="w-full py-4 rounded-2xl bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black text-lg shadow-lg transition active:scale-95">
-          ゲーム開始（登録 ${CLEAN_SONG_POOL.length} 曲）
+          ゲーム開始（順番ランダム・登録 ${CLEAN_SONG_POOL.length} 曲）
         </button>
       ` : `
         <p class="text-center text-sm font-bold text-slate-500">ホストがゲームを開始するのを待っています...</p>
@@ -1723,7 +1797,7 @@ function renderGameScreen() {
           return `
             <div class="p-3 rounded-2xl border-2 ${!p.alive ? 'bg-slate-100 border-slate-200 opacity-50' : (isTurn ? 'bg-fuchsia-50 border-fuchsia-500 shadow' : 'bg-white border-slate-200')}">
               <div class="flex items-center justify-between">
-                <span class="font-black text-sm text-slate-900 truncate">${esc(p.name)}</span>
+                <span class="font-black text-sm text-slate-900 truncate">${idx + 1}. ${esc(p.name)}</span>
                 ${isTurn ? '<span class="px-2 py-0.5 text-[10px] rounded-full bg-fuchsia-600 text-white font-black">手番</span>' : ''}
                 ${!p.alive ? '<span class="px-2 py-0.5 text-[10px] rounded-full bg-slate-500 text-white font-black">脱落</span>' : ''}
               </div>
@@ -1736,6 +1810,13 @@ function renderGameScreen() {
         }).join('')}
       </div>
 
+      ${viewState.lastSkipNotice ? `
+        <div class="px-4 py-2.5 rounded-2xl border ${viewState.lastSkipNotice.kind === 'normal' ? 'bg-amber-50 border-amber-300 text-amber-950' : 'bg-rose-50 border-rose-300 text-rose-900'} text-xs sm:text-sm font-black flex items-center gap-2">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>${esc(viewState.lastSkipNotice.text)}</span>
+        </div>
+      ` : ''}
+
       <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-lg border-2 border-slate-200">
         ${renderCenterArea(active, isMyTurn, me)}
       </div>
@@ -1743,7 +1824,7 @@ function renderGameScreen() {
       <div class="bg-white rounded-3xl p-5 shadow-lg border-2 border-slate-200">
         <div class="flex items-center justify-between mb-3">
           <h3 class="font-black text-base sm:text-lg text-slate-900">
-            <i class="fa-solid fa-timeline text-fuchsia-600 mr-1.5"></i> 全員共通タイムライン（${viewState.timeline.length}枚）
+            <i class="fa-solid fa-timeline text-fuchsia-600 mr-1.5"></i> 全員共通タイムライン（${viewState.timeline.length}枚・同年代は置換）
           </h3>
           <span class="text-xs font-bold text-slate-500">山札残り: ${viewState.deckCount}枚</span>
         </div>
@@ -1822,7 +1903,7 @@ function renderCenterArea(active, isMyTurn, me) {
         ${viewState.previewNotFound ? `
           <div class="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-black">
             <i class="fa-solid fa-triangle-exclamation mr-1"></i>
-            該当するオリジナル音源が見つかりませんでした。スキップ権を消費せずに次へ進めます。
+            該当するオリジナル音源が見つかりませんでした。下のスキップを押すと曲名を表示して次の曲を引けます。
           </div>
         ` : ''}
 
@@ -1839,13 +1920,13 @@ function renderCenterArea(active, isMyTurn, me) {
             <button ${(me && me.skipsLeft > 0 && viewState.deckCount > 0) ? '' : 'disabled'}
               onclick="playSFX('tap'); sendAction({ type: 'SKIP' })"
               class="px-4 py-3 rounded-2xl bg-amber-100 hover:bg-amber-200 disabled:opacity-40 text-amber-950 font-black text-sm border border-amber-300 transition active:scale-95">
-              通常スキップ（残 ${me ? me.skipsLeft : 0} 回）
+              通常スキップ・手番飛ばす（残 ${me ? me.skipsLeft : 0} 回）
             </button>
 
             <button ${viewState.deckCount <= 0 ? 'disabled' : ''}
               onclick="playSFX('tap'); sendAction({ type: 'SKIP_NO_AUDIO' })"
               class="px-4 py-3 rounded-2xl ${viewState.previewNotFound ? 'bg-rose-600 hover:bg-rose-700 text-white shadow' : 'bg-slate-200 hover:bg-slate-300 text-slate-800 border border-slate-300'} disabled:opacity-40 font-black text-sm transition active:scale-95">
-              <i class="fa-solid fa-forward-step mr-1"></i> 別曲/オルゴール等スキップ（回数消費なし）
+              <i class="fa-solid fa-forward-step mr-1"></i> 別曲/音源なしスキップ（回数消費なし）
             </button>
           </div>
         ` : `
