@@ -54,6 +54,11 @@
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
+        <span id="header-update-date" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 text-slate-700 font-black text-xs sm:text-sm border border-slate-300">
+          <i class="fa-regular fa-calendar-check text-fuchsia-600"></i>
+          <span>更新日: <strong id="update-date-text"></strong></span>
+        </span>
+
         <button id="btn-copy-code" onclick="copyRoomCode()" class="hidden items-center gap-1.5 px-3 py-2 rounded-xl bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-950 font-black text-sm border border-fuchsia-300 transition active:scale-95">
           <i class="fa-solid fa-key text-fuchsia-600"></i>
           <span>合言葉: <strong id="header-code" class="font-display text-base"></strong></span>
@@ -83,20 +88,19 @@
   <div id="rules-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
     <div class="bg-white rounded-3xl max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl border-2 border-slate-200 overflow-hidden">
       <div class="px-6 py-4 bg-fuchsia-600 text-white flex items-center justify-between">
-        <h2 class="text-lg font-black"><i class="fa-solid fa-list-check mr-2"></i>ゲームルール</h2>
+        <h2 class="text-lg font-black"><i class="fa-solid fa-list-check mr-2"></i>ゲームルール・仕様</h2>
         <button onclick="closeRules()" class="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center font-bold">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
       <div class="p-6 overflow-y-auto space-y-3 text-sm sm:text-base font-bold text-slate-700 leading-relaxed">
-        <p>1. 全員で<strong>1つの共通タイムライン（TL）</strong>にカードを並べていきます。スタート順はランダムです。</p>
-        <p>2. 各プレイヤーは<strong>初期ライフ</strong>（デフォルト2、ホストが1〜10で変更可）を持ちます。</p>
-        <p>3. 順番に1枚引き、再生ボタンで試聴して、発売年が左から右へ古→新になる位置に置きます。</p>
-        <p>4. すでに<strong>同じ年代のカードがTLにある場合</strong>、新しく引いたカードと入れ替わってコンパクトに保たれます。<strong>間違えるとライフが1減ります</strong>。</p>
-        <p>5. <strong>通常スキップは1人1回だけ</strong>使えます。使うと正体が表示され、<strong>手番が次の人へ移ります</strong>。</p>
-        <p>6. <strong>オルゴール・別バージョン・違う曲が流れた場合</strong>や<strong>音源が見つからなかった場合</strong>は、回数制限なしのスキップ（正体表示＋手番継続）で新しい曲を引き直せます。</p>
-        <p>7. 結果発表後に検索ミスに気づいた場合は、<strong>「検索ミスやり直し（ライフ戻してスキップ）」</strong>でやり直せます。</p>
-        <p>8. ライフが0になると脱落し、<strong>最後まで生き残ったプレイヤーの勝利</strong>です。</p>
+        <p>1. <strong>スタート順は毎回ランダム</strong>にシャッフルされ、1番手から時計回りに進行します。</p>
+        <p>2. 全員で<strong>1つの共通タイムライン（TL）</strong>にカードを並べていきます。初期ライフはデフォルト2（ホストが1〜10で変更可）です。</p>
+        <p>3. すでに<strong>同じ年代のカードがTLにある場合</strong>、新しく引いたカードと入れ替わってTLの長さを抑えます。<strong>間違えるとライフが1減ります</strong>。</p>
+        <p>4. <strong>通常スキップ（1人1回）</strong>：スキップした曲名を表示し、<strong>手番を次の生存プレイヤーへ移します</strong>。</p>
+        <p>5. <strong>別曲/音源なしスキップ（回数無制限）</strong>：スキップした曲名を表示し、<strong>同じプレイヤーの手番のまま</strong>新しい曲を引き直します。</p>
+        <p>6. 結果発表後に検索ミスに気づいた場合は、<strong>「検索ミスやり直し（ライフ戻してスキップ）」</strong>でやり直せます。</p>
+        <p>7. ライフが0になると脱落し、<strong>最後まで生き残ったプレイヤーの勝利</strong>です。</p>
       </div>
       <div class="p-4 bg-slate-50 border-t border-slate-200 text-right">
         <button onclick="closeRules()" class="px-6 py-2.5 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black">閉じる</button>
@@ -105,6 +109,12 @@
   </div>
 
 <script>
+// ============================================================================
+// 0. 更新日（★★★ ここに更新日を書いてください ★★★）
+//    例: "2026/11/24" や "2026-11-24 更新" など好きな文字列でOK
+// ============================================================================
+const UPDATE_DATE = "2026/11/24　更新";
+
 // ============================================================================
 // 1. アニメ曲リスト（★★★ ここに曲リストを挿入してください ★★★）
 //    フォーマット:
@@ -188,9 +198,6 @@ const SONG_POOL = [
 { year: 1994, title: "FLYING IN THE SKY", anime: "機動武闘伝Gガンダム", artist: "鵜島仁文" },
 { year: 1994, title: "Trust You Forever", anime: "機動武闘伝Gガンダム", artist: "鵜島仁文" },
 { year: 1994, title: "あなただけ見つめてる", anime: "SLAM DUNK", artist: "大黒摩季" },
-
-
-
 
 // --- 1995年 ---
 { year: 1995, title: "残酷な天使のテーゼ", anime: "新世紀エヴァンゲリオン", artist: "高橋洋子" },
@@ -358,7 +365,6 @@ const SONG_POOL = [
 { year: 2006, title: "why,or why not", anime: "ひぐらしのなく頃に", artist: "大嶋啓之 feat. 片霧烈火" },
 { year: 2006, title: "勇侠青春謳", anime: "コードギアス 反逆のルルーシュ", artist: "ALI PROJECT" },
 { year: 2006, title: "Kirameku Namida wa Hoshi ni", anime: "Fate/stay night", artist: "タイナカサチ" },
-{ year: 2006, title: "ヒカリ", anime: "Fate/stay night", artist: "タイナカサチ" },
 { year: 2006, title: "Drawing Days", anime: "家庭教師ヒットマンREBORN!", artist: "SPLAY" },
 { year: 2006, title: "the WORLD", anime: "DEATH NOTE", artist: "NIGHTMARE" },
 { year: 2006, title: "Pray", anime: "銀魂", artist: "Tommy heavenly6" },
@@ -555,7 +561,6 @@ const SONG_POOL = [
 { year: 2014, title: "ギミー!レボリューション", anime: "俺、ツインテールになります。", artist: "内田真礼" },
 { year: 2014, title: "七色シンフォニー", anime: "四月は君の嘘", artist: "コアラモード." },
 { year: 2014, title: "キラメキ", anime: "四月は君の嘘", artist: "wacci" },
-{ year: 2014, title: "オレンジ", anime: "四月は君の嘘", artist: "7!!" },
 { year: 2014, title: "courage", anime: "ソードアート・オンラインII", artist: "戸松遥" },
 { year: 2014, title: "Startear", anime: "ソードアート・オンラインII", artist: "春奈るな" },
 { year: 2014, title: "days", anime: "メカクシティアクターズ", artist: "じん feat. Lia" },
@@ -827,7 +832,6 @@ const SONG_POOL = [
 { year: 2024, title: "FREEDOM", anime: "機動戦士ガンダムSEED FREEDOM", artist: "西川貴教 with t.komuro" },
 { year: 2024, title: "PEACEKEEPER", anime: "転生したらスライムだった件 第3期", artist: "TRUE" },
 { year: 2024, title: "レナセールセレナーデ", anime: "転生したらスライムだった件 第3期", artist: "ももいろクローバーZ" },
-{ year: 2024, title: "Miracle Soup", anime: "転生したらスライムだった件 第3期", artist: "岡咲美保" },
 { year: 2024, title: "Same Blue", anime: "アオのハコ", artist: "Official髭男dism" },
 { year: 2024, title: "カーテンコール", anime: "僕のヒーローアカデミア", artist: "優里" },
 { year: 2024, title: "絶対零度", anime: "WIND BREAKER", artist: "なとり" },
@@ -885,9 +889,7 @@ const SONG_POOL = [
 { year: 2026, title: "燦然", anime: "新劇場版 銀魂 -吉原大炎上-", artist: "SUPER BEAVER" },
 { year: 2026, title: "キライのちスキ！", anime: "ケロロ軍曹☆", artist: "ano" },
 
-
-
- // ▲▲▲ ここに曲リストを挿入 ▲▲▲
+  // ▲▲▲ ここに曲リストを挿入 ▲▲▲
 ];
 
 const CLEAN_SONG_POOL = (() => {
@@ -1212,7 +1214,7 @@ function playPreviewByUrl(url) {
   isPreviewLoading = false;
   if (!url) {
     updatePlayButtonUI();
-    showToast('該当するオリジナル音源が見つかりませんでした。「別曲/オルゴール等スキップ」で次へ進めます。', 'warn');
+    showToast('該当するオリジナル音源が見つかりませんでした。「別曲/音源なしスキップ」で次へ進めます。', 'warn');
     return;
   }
 
@@ -1226,7 +1228,7 @@ function playPreviewByUrl(url) {
   previewAudio.onerror = () => {
     isPreviewPlaying = false;
     updatePlayButtonUI();
-    showToast('音声の再生に失敗しました。「別曲/オルゴール等スキップ」も使えます。', 'error');
+    showToast('音声の再生に失敗しました。「別曲/音源なしスキップ」も使えます。', 'error');
   };
 
   previewAudio.play().then(() => {
@@ -1256,7 +1258,7 @@ function updatePlayButtonUI() {
 // ============================================================================
 // 3. PeerJS P2P 通信＆ホスト権威型ステート
 // ============================================================================
-const ROOM_PREFIX = 'hitster-anime-surv-v2-';
+const ROOM_PREFIX = 'hitster-anime-surv-v3-';
 let peer = null;
 let myId = null;
 let myName = '';
@@ -1496,11 +1498,14 @@ function onStateSynced(prevPhase, nextState) {
 
 function findNextAliveTurnIndex(fromIdx) {
   const n = masterState.players.length;
+  if (n <= 0) return 0;
   for (let offset = 1; offset <= n; offset++) {
     const idx = (fromIdx + offset) % n;
-    if (masterState.players[idx].alive) return idx;
+    if (masterState.players[idx] && masterState.players[idx].alive) {
+      return idx;
+    }
   }
-  return 0;
+  return fromIdx;
 }
 
 function checkSurvivalVictory() {
@@ -1564,7 +1569,6 @@ async function handleAction(senderId, msg) {
         showToast('アニメ曲リストに最低2曲以上追加してから開始してください！', 'error');
         return;
       }
-      // スタート順をランダムにシャッフル
       masterState.players = shuffle(masterState.players);
       masterState.players.forEach(p => {
         p.life = masterState.initialLife;
@@ -1599,24 +1603,33 @@ async function handleAction(senderId, msg) {
       break;
     }
 
-    // 通常スキップ：スキップ権を1消費＋曲名通知＋次のプレイヤーへ手番を飛ばす
     case 'SKIP': {
       if (masterState.phase !== 'TURN') return;
-      const active = masterState.players[masterState.turnIndex];
+      const currentIdx = masterState.turnIndex;
+      const active = masterState.players[currentIdx];
       if (!active || active.id !== senderId) return;
-      if (active.skipsLeft <= 0 || masterState.deck.length === 0) return;
+      if (active.skipsLeft <= 0) return;
+
+      if (masterState.deck.length === 0) {
+        checkSurvivalVictory();
+        broadcastState();
+        return;
+      }
 
       const skippedCard = masterState.currentCard;
       active.skipsLeft -= 1;
+
+      const nextIdx = findNextAliveTurnIndex(currentIdx);
+      const nextPlayer = masterState.players[nextIdx];
+      masterState.turnIndex = nextIdx;
 
       noticeCounter += 1;
       masterState.lastSkipNotice = {
         seq: noticeCounter,
         kind: 'normal',
-        text: `${active.name} がスキップ！スキップされた曲：${formatCardInfo(skippedCard)}`
+        text: `${active.name} が通常スキップ！正体：${formatCardInfo(skippedCard)} → 次は ${nextPlayer ? nextPlayer.name : ''} の番です`
       };
 
-      masterState.turnIndex = findNextAliveTurnIndex(masterState.turnIndex);
       masterState.currentCard = masterState.deck.pop();
       masterState.previewNotFound = false;
       cachedPreviewUrl = null;
@@ -1626,7 +1639,6 @@ async function handleAction(senderId, msg) {
       break;
     }
 
-    // 音源なし / 別曲・オルゴール等スキップ：曲名通知＋同じ人の手番のまま新しい曲を引く
     case 'SKIP_NO_AUDIO': {
       if (masterState.phase !== 'TURN') return;
       const active = masterState.players[masterState.turnIndex];
@@ -1642,7 +1654,7 @@ async function handleAction(senderId, msg) {
       masterState.lastSkipNotice = {
         seq: noticeCounter,
         kind: 'no_audio',
-        text: `${reasonPrefix}${formatCardInfo(skippedCard)}`
+        text: `${reasonPrefix}${formatCardInfo(skippedCard)}（${active.name} の番のまま引き直し）`
       };
 
       masterState.currentCard = masterState.deck.pop();
@@ -1669,7 +1681,6 @@ async function handleAction(senderId, msg) {
       const ok = (!left || left.y <= card.y) && (!right || card.y <= right.y);
 
       if (ok) {
-        // 同じ年代がすでにTLにある場合は、前から置いてあったカードと交換（置換）する
         const existingSameYearIdx = tl.findIndex(c => c.y === card.y);
         if (existingSameYearIdx !== -1) {
           const oldCard = tl[existingSameYearIdx];
@@ -1731,7 +1742,6 @@ async function handleAction(senderId, msg) {
 
       if (res.correct && res.insertedSlot !== null) {
         if (res.replacedCard) {
-          // 置換していた場合は元の同年代カードに戻す
           masterState.timeline[res.insertedSlot] = res.replacedCard;
         } else {
           masterState.timeline.splice(res.insertedSlot, 1);
@@ -1796,7 +1806,21 @@ async function handleAction(senderId, msg) {
 // ============================================================================
 // 4. 画面描画（renderAll）
 // ============================================================================
+function renderUpdateDate() {
+  const el = document.getElementById('update-date-text');
+  const badge = document.getElementById('header-update-date');
+  if (!el || !badge) return;
+  const trimmed = String(UPDATE_DATE || '').trim();
+  if (trimmed) {
+    el.textContent = trimmed;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
 function renderAll() {
+  renderUpdateDate();
   const root = document.getElementById('app-root');
   const codeBtn = document.getElementById('btn-copy-code');
   const codeLabel = document.getElementById('header-code');
@@ -2026,7 +2050,7 @@ function renderCenterArea(active, isMyTurn, me) {
         ${viewState.previewNotFound ? `
           <div class="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-black">
             <i class="fa-solid fa-triangle-exclamation mr-1"></i>
-            該当するオリジナル音源が見つかりませんでした。下のスキップを押すと曲名を表示して次の曲を引けます。
+            該当するオリジナル音源が見つかりませんでした。下の「別曲/音源なしスキップ」で自分の番のまま曲を引き直せます。
           </div>
         ` : ''}
 
@@ -2043,13 +2067,13 @@ function renderCenterArea(active, isMyTurn, me) {
             <button ${(me && me.skipsLeft > 0 && viewState.deckCount > 0) ? '' : 'disabled'}
               onclick="playSFX('tap'); sendAction({ type: 'SKIP' })"
               class="px-4 py-3 rounded-2xl bg-amber-100 hover:bg-amber-200 disabled:opacity-40 text-amber-950 font-black text-sm border border-amber-300 transition active:scale-95">
-              通常スキップ・手番飛ばす（残 ${me ? me.skipsLeft : 0} 回）
+              通常スキップ・次の人へ（残 ${me ? me.skipsLeft : 0} 回）
             </button>
 
             <button ${viewState.deckCount <= 0 ? 'disabled' : ''}
               onclick="playSFX('tap'); sendAction({ type: 'SKIP_NO_AUDIO' })"
               class="px-4 py-3 rounded-2xl ${viewState.previewNotFound ? 'bg-rose-600 hover:bg-rose-700 text-white shadow' : 'bg-slate-200 hover:bg-slate-300 text-slate-800 border border-slate-300'} disabled:opacity-40 font-black text-sm transition active:scale-95">
-              <i class="fa-solid fa-forward-step mr-1"></i> 別曲/音源なしスキップ（回数消費なし）
+              <i class="fa-solid fa-forward-step mr-1"></i> 別曲/音源なしスキップ（曲だけ引き直し）
             </button>
           </div>
         ` : `
