@@ -99,7 +99,7 @@
         <p>3. すでに<strong>同じ年代のカードがTLにある場合</strong>、新しく引いたカードと入れ替わってTLの長さを抑えます。<strong>間違えるとライフが1減ります</strong>。</p>
         <p>4. <strong>通常スキップ（1人1回）</strong>：スキップした曲名を表示し、<strong>手番を次の生存プレイヤーへ移します</strong>。</p>
         <p>5. <strong>別曲/音源なしスキップ（回数無制限）</strong>：スキップした曲名を表示し、<strong>同じプレイヤーの手番のまま</strong>新しい曲を引き直します。</p>
-        <p>6. <strong>同時再生</strong>：再生・停止操作は参加者全員に同期されます。<strong>音量スライダーは各自で個別に調整</strong>できます。</p>
+        <p>6. <strong>再生モード（ロビーで選択）</strong>：「全員同時再生」と「通常再生（各々で再生）」を選べます。<strong>音量スライダーはどちらのモードでも各自で個別に調整</strong>できます。</p>
         <p>7. 結果発表後に検索ミスに気づいた場合は、<strong>「検索ミスやり直し（ライフ戻してスキップ）」</strong>でやり直せます。</p>
         <p>8. ライフが0になると脱落し、<strong>最後まで生き残ったプレイヤーの勝利</strong>です。</p>
       </div>
@@ -114,7 +114,7 @@
 // 0. 更新日（★★★ ここに更新日を書いてください ★★★）
 //    例: "2026/11/24" や "2026-11-24 更新" など好きな文字列でOK
 // ============================================================================
-const UPDATE_DATE = "2026/11/26　同時再生機能追加";
+const UPDATE_DATE = "2026/11/26 同時再生機能追加";
 
 // ============================================================================
 // 1. アニメ曲リスト（★★★ ここに曲リストを挿入してください ★★★）
@@ -123,7 +123,6 @@ const UPDATE_DATE = "2026/11/26　同時再生機能追加";
 // ============================================================================
 const SONG_POOL = [
   // ▼▼▼ ここに曲リストを挿入 ▼▼▼
-
 
 // --- 1975年 ---
 { year: 1975, title: "ルージュの伝言", anime: "魔女の宅急便", artist: "荒井由実" },
@@ -614,7 +613,7 @@ const SONG_POOL = [
 // --- 2016年 ---
 { year: 2016, title: "THE DAY", anime: "僕のヒーローアカデミア", artist: "ポルノグラフィティ" },
 { year: 2016, title: "HEROES", anime: "僕のヒーローアカデミア", artist: "Brian the Sun" },
-{ year: 2016, title: "前前前世", anime: "君の名は。", artist: "RADWIMPS" },
+{ year: 2016, title: "前前前世 (movie ver.)", anime: "君の名は。", artist: "RADWIMPS" },
 { year: 2016, title: "Redo", anime: "Re:ゼロから始める異世界生活", artist: "鈴木このみ" },
 { year: 2016, title: "STYX HELIX", anime: "Re:ゼロから始める異世界生活", artist: "MYTH & ROID" },
 { year: 2016, title: "KABANERI OF THE IRON FORTRESS", anime: "甲鉄城のカバネリ", artist: "EGOIST" },
@@ -960,9 +959,9 @@ function formatCardInfo(card) {
 // 2. 音量管理・効果音（Web Audio API）＆ Apple Music / iTunes プレビュー再生
 // ============================================================================
 let audioCtx = null;
-let volumeLevel = 0.4; // 各自の音量（0.0 〜 1.0）
+let volumeLevel = 0.4;
 let lastNonZeroVolume = 0.4;
-let isMuted = false; // 各自のミュート状態
+let isMuted = false;
 let previewAudio = null;
 let isPreviewPlaying = false;
 let isPreviewLoading = false;
@@ -1235,33 +1234,51 @@ async function searchApplePreviewUrl(artist, title) {
   return null;
 }
 
+function isSyncPlaybackMode() {
+  return Boolean(viewState && viewState.playbackMode === 'sync');
+}
+
 function canControlSyncPlayback() {
-  if (!viewState || viewState.phase !== 'TURN') return false;
+  if (!viewState || viewState.phase !== 'TURN' || !isSyncPlaybackMode()) return false;
   const active = viewState.players[viewState.turnIndex];
   return Boolean(isHost || (active && active.id === myId));
 }
 
 function handlePlayButtonClick() {
-  if (isPreviewPlaying) {
+  if (isSyncPlaybackMode()) {
+    if (isPreviewPlaying) {
+      if (canControlSyncPlayback()) {
+        sendAction({ type: 'REQUEST_SYNC_STOP' });
+      } else {
+        stopLocalPreviewAudio();
+      }
+      return;
+    }
+
+    if (isPreviewLoading) return;
+
     if (canControlSyncPlayback()) {
-      sendAction({ type: 'REQUEST_SYNC_STOP' });
+      isPreviewLoading = true;
+      updatePlayButtonUI();
+      sendAction({ type: 'REQUEST_SYNC_PLAY' });
+    } else if (latestSyncedPreviewUrl) {
+      startLocalPreviewUrl(latestSyncedPreviewUrl, false);
     } else {
-      stopLocalPreviewAudio();
+      showToast('手番プレイヤーまたはホストが再生すると全員に配信されます。', 'info', 3000);
     }
     return;
   }
 
+  // 通常再生（各々で再生）
+  if (isPreviewPlaying) {
+    stopLocalPreviewAudio();
+    return;
+  }
   if (isPreviewLoading) return;
 
-  if (canControlSyncPlayback()) {
-    isPreviewLoading = true;
-    updatePlayButtonUI();
-    sendAction({ type: 'REQUEST_SYNC_PLAY' });
-  } else if (latestSyncedPreviewUrl) {
-    startLocalPreviewUrl(latestSyncedPreviewUrl, false);
-  } else {
-    showToast('手番プレイヤーまたはホストが再生すると全員に配信されます。', 'info', 3000);
-  }
+  isPreviewLoading = true;
+  updatePlayButtonUI();
+  requestIndividualPreviewUrl();
 }
 
 function startLocalPreviewUrl(url, isAutoSyncFromPeer) {
@@ -1294,7 +1311,7 @@ function startLocalPreviewUrl(url, isAutoSyncFromPeer) {
     isPreviewPlaying = false;
     updatePlayButtonUI();
     if (isAutoSyncFromPeer) {
-      showToast('同時再生がブロックされました。「曲を再生する」を押すと再生できます。', 'warn', 4500);
+      showToast('同時再生がブロックされました。「再生」を押すと再生できます。', 'warn', 4500);
     } else {
       showToast('再生できませんでした。もう一度押してください。', 'warn');
     }
@@ -1309,17 +1326,21 @@ function updatePlayButtonUI() {
     else disc.classList.remove('spin-slow');
   }
   if (label) {
-    if (isPreviewLoading) label.textContent = '音源を検索中...';
-    else if (isPreviewPlaying) label.textContent = '全員停止';
-    else if (canControlSyncPlayback()) label.textContent = '全員で再生';
-    else label.textContent = '曲を再生する';
+    if (isPreviewLoading) {
+      label.textContent = '音源を検索中...';
+    } else if (isSyncPlaybackMode()) {
+      if (isPreviewPlaying) label.textContent = canControlSyncPlayback() ? '全員停止' : '再生ストップ';
+      else label.textContent = canControlSyncPlayback() ? '全員で再生' : '曲を再生する';
+    } else {
+      label.textContent = isPreviewPlaying ? '再生ストップ' : '曲を再生する';
+    }
   }
 }
 
 // ============================================================================
 // 3. PeerJS P2P 通信＆ホスト権威型ステート
 // ============================================================================
-const ROOM_PREFIX = 'hitster-anime-surv-v4-';
+const ROOM_PREFIX = 'hitster-anime-surv-v5-';
 let peer = null;
 let myId = null;
 let myName = '';
@@ -1401,6 +1422,8 @@ function handlePeerMessage(msg) {
     startLocalPreviewUrl(msg.url, msg.actorId !== myId);
   } else if (msg.type === 'SYNC_STOP') {
     stopLocalPreviewAudio();
+  } else if (msg.type === 'PREVIEW_URL_INDIVIDUAL') {
+    startLocalPreviewUrl(msg.url, false);
   } else if (msg.type === 'ERR') {
     isPreviewLoading = false;
     updatePlayButtonUI();
@@ -1428,6 +1451,7 @@ function createRoom() {
       hostId: myId,
       phase: 'LOBBY',
       initialLife: 2,
+      playbackMode: 'sync',
       players: [{ id: myId, name: myName, life: 2, skipsLeft: 1, alive: true }],
       timeline: [],
       deck: [],
@@ -1504,12 +1528,23 @@ async function resolveCurrentPreviewOnHost() {
   return cachedPreviewUrl;
 }
 
+async function requestIndividualPreviewUrl() {
+  if (isHost) {
+    const url = await resolveCurrentPreviewOnHost();
+    startLocalPreviewUrl(url, false);
+  } else if (hostConn && hostConn.open) {
+    hostConn.send({ type: 'GET_PREVIEW_URL_INDIVIDUAL' });
+  }
+}
+
 function resetRoundAudioCache() {
   cachedPreviewUrl = null;
   cachedPreviewChecked = false;
   latestSyncedPreviewUrl = null;
   stopLocalPreviewAudio();
-  broadcastToAll({ type: 'SYNC_STOP' });
+  if (masterState && masterState.playbackMode === 'sync') {
+    broadcastToAll({ type: 'SYNC_STOP' });
+  }
 }
 
 function makeMaskedState() {
@@ -1523,6 +1558,7 @@ function makeMaskedState() {
     hostId: masterState.hostId,
     phase: masterState.phase,
     initialLife: masterState.initialLife,
+    playbackMode: masterState.playbackMode,
     players: masterState.players.map(p => ({ ...p })),
     timeline: [...masterState.timeline],
     deckCount: masterState.deck.length,
@@ -1637,6 +1673,13 @@ async function handleAction(senderId, msg) {
       break;
     }
 
+    case 'SET_PLAYBACK_MODE': {
+      if (senderId !== masterState.hostId || masterState.phase !== 'LOBBY') return;
+      masterState.playbackMode = msg.mode === 'individual' ? 'individual' : 'sync';
+      broadcastState();
+      break;
+    }
+
     case 'START': {
       if (senderId !== masterState.hostId || masterState.phase !== 'LOBBY') return;
       if (CLEAN_SONG_POOL.length < 2) {
@@ -1667,8 +1710,18 @@ async function handleAction(senderId, msg) {
       break;
     }
 
+    case 'GET_PREVIEW_URL_INDIVIDUAL': {
+      if (!masterState.currentCard) return;
+      const url = await resolveCurrentPreviewOnHost();
+      const conn = clientConns[senderId];
+      if (conn && conn.open) {
+        conn.send({ type: 'PREVIEW_URL_INDIVIDUAL', url });
+      }
+      break;
+    }
+
     case 'REQUEST_SYNC_PLAY': {
-      if (masterState.phase !== 'TURN' || !masterState.currentCard) return;
+      if (masterState.phase !== 'TURN' || !masterState.currentCard || masterState.playbackMode !== 'sync') return;
       const active = masterState.players[masterState.turnIndex];
       if (senderId !== masterState.hostId && (!active || active.id !== senderId)) return;
 
@@ -1680,6 +1733,7 @@ async function handleAction(senderId, msg) {
     }
 
     case 'REQUEST_SYNC_STOP': {
+      if (masterState.playbackMode !== 'sync') return;
       const active = masterState.players[masterState.turnIndex];
       if (senderId !== masterState.hostId && (!active || active.id !== senderId)) return;
       const payload = { type: 'SYNC_STOP', actorId: senderId };
@@ -1959,6 +2013,7 @@ function renderJoinScreen() {
 }
 
 function renderLobbyScreen() {
+  const mode = viewState.playbackMode || 'sync';
   return `
     <div class="max-w-3xl w-full mx-auto bg-white rounded-3xl p-6 sm:p-8 shadow-lg border-2 border-slate-200 space-y-6">
       <div class="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-200">
@@ -1979,6 +2034,30 @@ function renderLobbyScreen() {
             <span class="font-black text-rose-700 text-base">${viewState.initialLife}</span>
           `}
         </div>
+      </div>
+
+      <div class="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 space-y-2">
+        <div class="text-xs font-black text-slate-700">
+          <i class="fa-solid fa-music text-fuchsia-600 mr-1"></i>曲の再生方式
+        </div>
+        ${isHost ? `
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button type="button" onclick="playSFX('tap'); sendAction({ type: 'SET_PLAYBACK_MODE', mode: 'sync' })"
+              class="p-3 rounded-xl border-2 text-left transition ${mode === 'sync' ? 'bg-fuchsia-600 border-fuchsia-600 text-white shadow' : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-100'}">
+              <div class="font-black text-sm">全員同時再生</div>
+              <div class="text-[11px] font-bold ${mode === 'sync' ? 'text-fuchsia-100' : 'text-slate-500'}">再生・停止が全員に同期（音量は各自で調整）</div>
+            </button>
+            <button type="button" onclick="playSFX('tap'); sendAction({ type: 'SET_PLAYBACK_MODE', mode: 'individual' })"
+              class="p-3 rounded-xl border-2 text-left transition ${mode === 'individual' ? 'bg-emerald-600 border-emerald-600 text-white shadow' : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-100'}">
+              <div class="font-black text-sm">通常再生（各々で再生）</div>
+              <div class="text-[11px] font-bold ${mode === 'individual' ? 'text-emerald-100' : 'text-slate-500'}">各自が自分の画面で再生・停止（音量も各自で調整）</div>
+            </button>
+          </div>
+        ` : `
+          <div class="text-sm font-black text-slate-900">
+            ${mode === 'sync' ? '全員同時再生（再生・停止は同期／音量は各自で調整）' : '通常再生・各々で再生（各自で再生・停止＆音量調整）'}
+          </div>
+        `}
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2097,10 +2176,16 @@ function renderCenterArea(active, isMyTurn, me) {
     `;
   }
 
+  const syncMode = isSyncPlaybackMode();
   const canControl = canControlSyncPlayback();
   const playLabelText = isPreviewLoading
     ? '音源を検索中...'
-    : (isPreviewPlaying ? (canControl ? '全員停止' : '再生ストップ') : (canControl ? '全員で再生' : '曲を再生する'));
+    : (syncMode
+        ? (isPreviewPlaying ? (canControl ? '全員停止' : '再生ストップ') : (canControl ? '全員で再生' : '曲を再生する'))
+        : (isPreviewPlaying ? '再生ストップ' : '曲を再生する'));
+  const modeNoteText = syncMode
+    ? '※全員同時再生モード（再生・停止は同期／音量は各自で調整可）'
+    : '※通常再生モード（各自で再生・停止／音量も各自で調整可）';
 
   return `
     <div class="flex flex-col sm:flex-row items-center gap-6">
@@ -2123,7 +2208,7 @@ function renderCenterArea(active, isMyTurn, me) {
             <span id="volume-label" class="text-xs font-black text-slate-700 w-9 text-right">${Math.round(getEffectiveVolume() * 100)}%</span>
           </div>
         </div>
-        <p class="text-[11px] font-bold text-slate-500 mt-1.5">※再生・停止は全員同期／音量は各自で調整可</p>
+        <p class="text-[11px] font-bold text-slate-500 mt-1.5">${modeNoteText}</p>
       </div>
 
       <div class="flex-1 w-full text-center sm:text-left space-y-3">
@@ -2162,7 +2247,7 @@ function renderCenterArea(active, isMyTurn, me) {
           </div>
         ` : `
           <p class="text-sm font-bold text-slate-600">
-            ${esc(active ? active.name : '')} が配置位置を選んでいます。再生操作は全員に同期され、音量は各自のスライダーで変えられます。
+            ${esc(active ? active.name : '')} が配置位置を選んでいます。${syncMode ? '再生操作は全員に同期され、音量は各自のスライダーで変えられます。' : '各自「曲を再生する」を押して聴けます。'}
           </p>
         `}
       </div>
