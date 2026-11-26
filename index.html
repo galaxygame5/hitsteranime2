@@ -99,8 +99,9 @@
         <p>3. すでに<strong>同じ年代のカードがTLにある場合</strong>、新しく引いたカードと入れ替わってTLの長さを抑えます。<strong>間違えるとライフが1減ります</strong>。</p>
         <p>4. <strong>通常スキップ（1人1回）</strong>：スキップした曲名を表示し、<strong>手番を次の生存プレイヤーへ移します</strong>。</p>
         <p>5. <strong>別曲/音源なしスキップ（回数無制限）</strong>：スキップした曲名を表示し、<strong>同じプレイヤーの手番のまま</strong>新しい曲を引き直します。</p>
-        <p>6. 結果発表後に検索ミスに気づいた場合は、<strong>「検索ミスやり直し（ライフ戻してスキップ）」</strong>でやり直せます。</p>
-        <p>7. ライフが0になると脱落し、<strong>最後まで生き残ったプレイヤーの勝利</strong>です。</p>
+        <p>6. <strong>同時再生</strong>：再生・停止操作は参加者全員に同期されます。<strong>音量スライダーは各自で個別に調整</strong>できます。</p>
+        <p>7. 結果発表後に検索ミスに気づいた場合は、<strong>「検索ミスやり直し（ライフ戻してスキップ）」</strong>でやり直せます。</p>
+        <p>8. ライフが0になると脱落し、<strong>最後まで生き残ったプレイヤーの勝利</strong>です。</p>
       </div>
       <div class="p-4 bg-slate-50 border-t border-slate-200 text-right">
         <button onclick="closeRules()" class="px-6 py-2.5 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black">閉じる</button>
@@ -111,9 +112,9 @@
 <script>
 // ============================================================================
 // 0. 更新日（★★★ ここに更新日を書いてください ★★★）
-//    例: "2026/11/24" や "2026-11-25 曲追加" など好きな文字列でOK
+//    例: "2026/11/24" や "2026-11-24 更新" など好きな文字列でOK
 // ============================================================================
-const UPDATE_DATE = "2026/11/24　更新";
+const UPDATE_DATE = "2026/11/26　同時再生機能追加";
 
 // ============================================================================
 // 1. アニメ曲リスト（★★★ ここに曲リストを挿入してください ★★★）
@@ -122,6 +123,7 @@ const UPDATE_DATE = "2026/11/24　更新";
 // ============================================================================
 const SONG_POOL = [
   // ▼▼▼ ここに曲リストを挿入 ▼▼▼
+
 
 // --- 1975年 ---
 { year: 1975, title: "ルージュの伝言", anime: "魔女の宅急便", artist: "荒井由実" },
@@ -742,7 +744,6 @@ const SONG_POOL = [
 { year: 2021, title: "怪物", anime: "BEASTARS", artist: "YOASOBI" },
 { year: 2021, title: "優しい彗星", anime: "BEASTARS", artist: "YOASOBI" },
 { year: 2021, title: "One Last Kiss", anime: "シン・エヴァンゲリオン劇場版", artist: "宇多田ヒカル" },
-{ year: 2021, title: "Sing My Pleasure", anime: "Vivy -Fluorite Eye's Song-", artist: "ヴィヴィ (八木海莉)" },
 { year: 2021, title: "Like Flames", anime: "転生したらスライムだった件 第2期", artist: "MindaRyn" },
 { year: 2021, title: "STORYSEEKER", anime: "転生したらスライムだった件 第2期", artist: "STEREO DIVE FOUNDATION" },
 { year: 2021, title: "Reincarnate", anime: "転生したらスライムだった件 第2期", artist: "寺島拓篤" },
@@ -918,6 +919,16 @@ const SONG_POOL = [
     { year: 2014, title: "シドニア", anime: "シドニアの騎士", artist: "angela" },
     { year: 2015, title: "極限Dreamer", anime: "夜のヤッターマン", artist: "SCREEN mode" },
 
+    { year: 2008, title: "COSMIC LOVE", anime: "ロザリオとバンパイア", artist: "水樹奈々" },
+    { year: 2008, title: "DISCOTHEQUE", anime: "ロザリオとバンパイア CAPU2", artist: "水樹奈々" },
+
+    { year: 2018, title: "UNION", anime: "SSSS.GRIDMAN", artist: "OxT" },
+    { year: 2018, title: "youthful beautiful", anime: "SSSS.GRIDMAN", artist: "内田真礼" },
+
+    { year: 2014, title: "COLORFUL BOX", anime: "SHIROBAKO", artist: "石田燿子" },
+    { year: 2015, title: "宝箱-TREASURE BOX-", anime: "SHIROBAKO", artist: "奥井雅美" },
+
+  // ▲▲▲ ここに曲リストを挿入 ▲▲▲
 ];
 
 const CLEAN_SONG_POOL = (() => {
@@ -949,12 +960,13 @@ function formatCardInfo(card) {
 // 2. 音量管理・効果音（Web Audio API）＆ Apple Music / iTunes プレビュー再生
 // ============================================================================
 let audioCtx = null;
-let volumeLevel = 0.4;
+let volumeLevel = 0.4; // 各自の音量（0.0 〜 1.0）
 let lastNonZeroVolume = 0.4;
-let isMuted = false;
+let isMuted = false; // 各自のミュート状態
 let previewAudio = null;
 let isPreviewPlaying = false;
 let isPreviewLoading = false;
+let latestSyncedPreviewUrl = null;
 
 function getEffectiveVolume() {
   return isMuted ? 0 : Math.max(0, Math.min(1, volumeLevel));
@@ -1016,10 +1028,11 @@ function toggleMute() {
   if (!isMuted && getEffectiveVolume() > 0) {
     lastNonZeroVolume = volumeLevel;
     isMuted = true;
-    stopPreviewAudio();
+    if (previewAudio) previewAudio.volume = 0;
   } else {
     isMuted = false;
     volumeLevel = lastNonZeroVolume > 0 ? lastNonZeroVolume : 0.4;
+    if (previewAudio) previewAudio.volume = getEffectiveVolume();
   }
   applyVolumeToUIAndAudio();
   if (!isMuted) playSFX('tap');
@@ -1073,7 +1086,7 @@ function playSFX(kind) {
   } catch (e) {}
 }
 
-function stopPreviewAudio() {
+function stopLocalPreviewAudio() {
   if (previewAudio) {
     previewAudio.pause();
     previewAudio.currentTime = 0;
@@ -1222,31 +1235,46 @@ async function searchApplePreviewUrl(artist, title) {
   return null;
 }
 
-async function toggleSongPreview() {
-  if (getEffectiveVolume() <= 0) {
-    showToast('音量が0%またはミュートです。再生ボタン横の音量スライダーを上げてください。', 'warn');
-    return;
-  }
-  if (isPreviewPlaying) {
-    stopPreviewAudio();
-    return;
-  }
-  if (isPreviewLoading) return;
-
-  isPreviewLoading = true;
-  updatePlayButtonUI();
-  requestPreviewUrlFromHost();
+function canControlSyncPlayback() {
+  if (!viewState || viewState.phase !== 'TURN') return false;
+  const active = viewState.players[viewState.turnIndex];
+  return Boolean(isHost || (active && active.id === myId));
 }
 
-function playPreviewByUrl(url) {
+function handlePlayButtonClick() {
+  if (isPreviewPlaying) {
+    if (canControlSyncPlayback()) {
+      sendAction({ type: 'REQUEST_SYNC_STOP' });
+    } else {
+      stopLocalPreviewAudio();
+    }
+    return;
+  }
+
+  if (isPreviewLoading) return;
+
+  if (canControlSyncPlayback()) {
+    isPreviewLoading = true;
+    updatePlayButtonUI();
+    sendAction({ type: 'REQUEST_SYNC_PLAY' });
+  } else if (latestSyncedPreviewUrl) {
+    startLocalPreviewUrl(latestSyncedPreviewUrl, false);
+  } else {
+    showToast('手番プレイヤーまたはホストが再生すると全員に配信されます。', 'info', 3000);
+  }
+}
+
+function startLocalPreviewUrl(url, isAutoSyncFromPeer) {
   isPreviewLoading = false;
+  latestSyncedPreviewUrl = url;
+
   if (!url) {
     updatePlayButtonUI();
     showToast('該当するオリジナル音源が見つかりませんでした。「別曲/音源なしスキップ」で次へ進めます。', 'warn');
     return;
   }
 
-  stopPreviewAudio();
+  stopLocalPreviewAudio();
   previewAudio = new Audio(url);
   previewAudio.volume = getEffectiveVolume();
   previewAudio.onended = () => {
@@ -1265,7 +1293,11 @@ function playPreviewByUrl(url) {
   }).catch(() => {
     isPreviewPlaying = false;
     updatePlayButtonUI();
-    showToast('ブラウザの制限で再生できませんでした。もう一度押してください。', 'warn');
+    if (isAutoSyncFromPeer) {
+      showToast('同時再生がブロックされました。「曲を再生する」を押すと再生できます。', 'warn', 4500);
+    } else {
+      showToast('再生できませんでした。もう一度押してください。', 'warn');
+    }
   });
 }
 
@@ -1278,7 +1310,8 @@ function updatePlayButtonUI() {
   }
   if (label) {
     if (isPreviewLoading) label.textContent = '音源を検索中...';
-    else if (isPreviewPlaying) label.textContent = '再生ストップ';
+    else if (isPreviewPlaying) label.textContent = '全員停止';
+    else if (canControlSyncPlayback()) label.textContent = '全員で再生';
     else label.textContent = '曲を再生する';
   }
 }
@@ -1286,7 +1319,7 @@ function updatePlayButtonUI() {
 // ============================================================================
 // 3. PeerJS P2P 通信＆ホスト権威型ステート
 // ============================================================================
-const ROOM_PREFIX = 'hitster-anime-surv-v3-';
+const ROOM_PREFIX = 'hitster-anime-surv-v4-';
 let peer = null;
 let myId = null;
 let myName = '';
@@ -1347,6 +1380,33 @@ function shuffle(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+function broadcastToAll(payload) {
+  if (!isHost) return;
+  Object.values(clientConns).forEach(conn => {
+    if (conn.open) conn.send(payload);
+  });
+}
+
+function handlePeerMessage(msg) {
+  if (msg.type === 'SYNC_STATE') {
+    const prevPhase = viewState ? viewState.phase : null;
+    viewState = msg.state;
+    onStateSynced(prevPhase, viewState);
+    renderAll();
+  } else if (msg.type === 'SYNC_PLAY') {
+    isPreviewLoading = false;
+    latestSyncedPreviewUrl = msg.url;
+    startLocalPreviewUrl(msg.url, msg.actorId !== myId);
+  } else if (msg.type === 'SYNC_STOP') {
+    stopLocalPreviewAudio();
+  } else if (msg.type === 'ERR') {
+    isPreviewLoading = false;
+    updatePlayButtonUI();
+    playSFX('ng');
+    showToast(msg.text, 'error');
+  }
 }
 
 function createRoom() {
@@ -1419,19 +1479,7 @@ function joinRoom() {
       hostConn.send({ type: 'JOIN', name: myName });
       showToast(`部屋「${roomCode}」に入室しました`, 'success', 2500);
     });
-    hostConn.on('data', (msg) => {
-      if (msg.type === 'SYNC_STATE') {
-        const prevPhase = viewState ? viewState.phase : null;
-        viewState = msg.state;
-        onStateSynced(prevPhase, viewState);
-        renderAll();
-      } else if (msg.type === 'PREVIEW_URL') {
-        playPreviewByUrl(msg.url);
-      } else if (msg.type === 'ERR') {
-        playSFX('ng');
-        showToast(msg.text, 'error');
-      }
-    });
+    hostConn.on('data', handlePeerMessage);
   });
 
   peer.on('error', (err) => {
@@ -1456,13 +1504,12 @@ async function resolveCurrentPreviewOnHost() {
   return cachedPreviewUrl;
 }
 
-async function requestPreviewUrlFromHost() {
-  if (isHost) {
-    const url = await resolveCurrentPreviewOnHost();
-    playPreviewByUrl(url);
-  } else if (hostConn && hostConn.open) {
-    hostConn.send({ type: 'GET_PREVIEW_URL' });
-  }
+function resetRoundAudioCache() {
+  cachedPreviewUrl = null;
+  cachedPreviewChecked = false;
+  latestSyncedPreviewUrl = null;
+  stopLocalPreviewAudio();
+  broadcastToAll({ type: 'SYNC_STOP' });
 }
 
 function makeMaskedState() {
@@ -1499,14 +1546,13 @@ function broadcastState() {
   onStateSynced(prevPhase, viewState);
   renderAll();
 
-  Object.values(clientConns).forEach(conn => {
-    if (conn.open) conn.send({ type: 'SYNC_STATE', state: makeMaskedState() });
-  });
+  broadcastToAll({ type: 'SYNC_STATE', state: makeMaskedState() });
 }
 
 function onStateSynced(prevPhase, nextState) {
   if (prevPhase !== nextState.phase) {
-    stopPreviewAudio();
+    stopLocalPreviewAudio();
+    latestSyncedPreviewUrl = null;
     selectedSlot = null;
     if (nextState.phase === 'GAME_OVER') {
       playSFX('win');
@@ -1518,7 +1564,8 @@ function onStateSynced(prevPhase, nextState) {
 
   if (nextState.lastSkipNotice && nextState.lastSkipNotice.seq > lastNotifiedSeq) {
     lastNotifiedSeq = nextState.lastSkipNotice.seq;
-    stopPreviewAudio();
+    stopLocalPreviewAudio();
+    latestSyncedPreviewUrl = null;
     selectedSlot = null;
     showToast(nextState.lastSkipNotice.text, nextState.lastSkipNotice.kind === 'normal' ? 'info' : 'warn', 6500);
   }
@@ -1611,8 +1658,7 @@ async function handleAction(senderId, msg) {
       masterState.turnIndex = 0;
       masterState.currentCard = deck.pop();
       masterState.previewNotFound = false;
-      cachedPreviewUrl = null;
-      cachedPreviewChecked = false;
+      resetRoundAudioCache();
       masterState.lastResult = null;
       masterState.lastSkipNotice = null;
       masterState.winnerIds = [];
@@ -1621,13 +1667,24 @@ async function handleAction(senderId, msg) {
       break;
     }
 
-    case 'GET_PREVIEW_URL': {
-      if (!masterState.currentCard) return;
+    case 'REQUEST_SYNC_PLAY': {
+      if (masterState.phase !== 'TURN' || !masterState.currentCard) return;
+      const active = masterState.players[masterState.turnIndex];
+      if (senderId !== masterState.hostId && (!active || active.id !== senderId)) return;
+
       const url = await resolveCurrentPreviewOnHost();
-      const conn = clientConns[senderId];
-      if (conn && conn.open) {
-        conn.send({ type: 'PREVIEW_URL', url });
-      }
+      const payload = { type: 'SYNC_PLAY', url, actorId: senderId };
+      handlePeerMessage(payload);
+      broadcastToAll(payload);
+      break;
+    }
+
+    case 'REQUEST_SYNC_STOP': {
+      const active = masterState.players[masterState.turnIndex];
+      if (senderId !== masterState.hostId && (!active || active.id !== senderId)) return;
+      const payload = { type: 'SYNC_STOP', actorId: senderId };
+      handlePeerMessage(payload);
+      broadcastToAll(payload);
       break;
     }
 
@@ -1660,9 +1717,7 @@ async function handleAction(senderId, msg) {
 
       masterState.currentCard = masterState.deck.pop();
       masterState.previewNotFound = false;
-      cachedPreviewUrl = null;
-      cachedPreviewChecked = false;
-      stopPreviewAudio();
+      resetRoundAudioCache();
       broadcastState();
       break;
     }
@@ -1687,9 +1742,7 @@ async function handleAction(senderId, msg) {
 
       masterState.currentCard = masterState.deck.pop();
       masterState.previewNotFound = false;
-      cachedPreviewUrl = null;
-      cachedPreviewChecked = false;
-      stopPreviewAudio();
+      resetRoundAudioCache();
       broadcastState();
       break;
     }
@@ -1781,8 +1834,7 @@ async function handleAction(senderId, msg) {
 
       masterState.currentCard = masterState.deck.pop();
       masterState.previewNotFound = false;
-      cachedPreviewUrl = null;
-      cachedPreviewChecked = false;
+      resetRoundAudioCache();
       masterState.lastResult = null;
       masterState.phase = 'TURN';
       broadcastState();
@@ -1802,8 +1854,7 @@ async function handleAction(senderId, msg) {
       masterState.turnIndex = findNextAliveTurnIndex(masterState.turnIndex);
       masterState.currentCard = masterState.deck.pop();
       masterState.previewNotFound = false;
-      cachedPreviewUrl = null;
-      cachedPreviewChecked = false;
+      resetRoundAudioCache();
       masterState.lastResult = null;
       masterState.phase = 'TURN';
       broadcastState();
@@ -1815,8 +1866,7 @@ async function handleAction(senderId, msg) {
       masterState.phase = 'LOBBY';
       masterState.currentCard = null;
       masterState.previewNotFound = false;
-      cachedPreviewUrl = null;
-      cachedPreviewChecked = false;
+      resetRoundAudioCache();
       masterState.lastResult = null;
       masterState.lastSkipNotice = null;
       masterState.winnerIds = [];
@@ -2047,6 +2097,11 @@ function renderCenterArea(active, isMyTurn, me) {
     `;
   }
 
+  const canControl = canControlSyncPlayback();
+  const playLabelText = isPreviewLoading
+    ? '音源を検索中...'
+    : (isPreviewPlaying ? (canControl ? '全員停止' : '再生ストップ') : (canControl ? '全員で再生' : '曲を再生する'));
+
   return `
     <div class="flex flex-col sm:flex-row items-center gap-6">
       <div class="flex flex-col items-center flex-shrink-0">
@@ -2055,19 +2110,20 @@ function renderCenterArea(active, isMyTurn, me) {
         </div>
 
         <div class="mt-3 flex flex-wrap items-center justify-center gap-2">
-          <button onclick="toggleSongPreview()"
+          <button onclick="handlePlayButtonClick()"
             class="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm shadow transition active:scale-95">
-            <i class="fa-solid fa-play mr-1"></i><span id="play-btn-label">曲を再生する</span>
+            <i class="fa-solid ${isPreviewPlaying ? 'fa-stop' : 'fa-play'} mr-1"></i><span id="play-btn-label">${playLabelText}</span>
           </button>
 
           <div class="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-100 border-2 border-slate-200">
             <i id="vol-slider-icon" class="fa-solid fa-volume-high text-fuchsia-600 text-sm"></i>
             <input id="volume-slider" type="range" min="0" max="100" value="${Math.round(getEffectiveVolume() * 100)}"
               oninput="setVolumeFromSlider(this.value)"
-              class="w-20 sm:w-24 accent-fuchsia-600 cursor-pointer" aria-label="再生音量スライダー" />
+              class="w-20 sm:w-24 accent-fuchsia-600 cursor-pointer" aria-label="自分の再生音量スライダー" />
             <span id="volume-label" class="text-xs font-black text-slate-700 w-9 text-right">${Math.round(getEffectiveVolume() * 100)}%</span>
           </div>
         </div>
+        <p class="text-[11px] font-bold text-slate-500 mt-1.5">※再生・停止は全員同期／音量は各自で調整可</p>
       </div>
 
       <div class="flex-1 w-full text-center sm:text-left space-y-3">
@@ -2106,7 +2162,7 @@ function renderCenterArea(active, isMyTurn, me) {
           </div>
         ` : `
           <p class="text-sm font-bold text-slate-600">
-            ${esc(active ? active.name : '')} が配置位置を選んでいます。各自「曲を再生する」を押して聴けます。
+            ${esc(active ? active.name : '')} が配置位置を選んでいます。再生操作は全員に同期され、音量は各自のスライダーで変えられます。
           </p>
         `}
       </div>
